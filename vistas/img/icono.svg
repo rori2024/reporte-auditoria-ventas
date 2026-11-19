@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Icono de Hoja de Corte Digital.
+
+  Unas tijeras cortando por una línea de puntos: es lo que la aplicación
+  consulta, una hoja de corte. Las mismas tijeras que ya identifican al
+  sistema en la ventana «Acerca de», para que sea el mismo símbolo en los
+  dos sitios.
+
+  Colores: el degradado de marca del sistema de diseño, del token
+  `primary` (#0369a1) al `navy` (#0f172a). Nada de valores sueltos.
+
+  Es la pieza maestra: de aquí salen los PNG de `icono-*.png`. Si hay que
+  cambiar algo, se cambia aquí y se vuelven a generar.
+
+  A 16 px el detalle desaparece, así que el dibujo se apoya en la silueta:
+  un cuadro azul con unas tijeras blancas gruesas. Eso sí se reconoce en
+  una pestaña.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64"
+     role="img" aria-label="Hoja de Corte Digital">
+
+    <defs>
+        <linearGradient id="marca" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#0369a1"/>
+            <stop offset="1" stop-color="#0f172a"/>
+        </linearGradient>
+    </defs>
+
+    <rect width="64" height="64" rx="14" fill="url(#marca)"/>
+
+    <!-- La línea por donde se corta -->
+    <path d="M7 32H25" stroke="#7dd3fc" stroke-width="2.6" stroke-linecap="round"
+          stroke-dasharray="0.1 6.2" opacity=".85"/>
+
+    <!-- Tijeras -->
+    <g transform="translate(16 14) scale(1.45)" fill="none" stroke="#ffffff"
+       stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="6" cy="6" r="3"/>
+        <circle cx="6" cy="18" r="3"/>
+        <path d="M8.12 8.12 12 12M20 4 8.12 15.88M14.8 14.8 20 20"/>
+    </g>
+</svg>

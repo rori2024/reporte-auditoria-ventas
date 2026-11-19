@@ -1,0 +1,14 @@
+# Aquí viven dos cosas distintas: recursos que el navegador SÍ pide por URL
+# —css, js, img, manuales— y plantillas PHP que sólo se incluyen desde
+# `index.php`. Las segundas no son páginas: pedir `vistas/modulos/pie.php`
+# directamente devuelve un trozo de HTML suelto, sin cabecera ni estilos, con
+# los datos de contacto del pie. No es un secreto, pero tampoco es una URL.
+<FilesMatch "\.php$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>

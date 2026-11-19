@@ -1,0 +1,72 @@
+# ===========================================================================
+#  Qué NO sube a GitHub
+# ---------------------------------------------------------------------------
+#  Un .gitignore sólo evita que algo entre a partir de ahora. Lo que ya está
+#  en el historial sigue ahí aunque se borre del disco: para sacarlo hay que
+#  reescribir el historial, y una credencial que estuvo publicada se cambia,
+#  no se esconde. Ver docs/PLAN.md.
+# ===========================================================================
+
+# --- Secretos -------------------------------------------------------------
+# El .env lleva el usuario y la clave del AS400 y los de la base de la
+# intranet. Nunca se versiona. `.env.example` sí: es la plantilla, sin valores.
+.env
+.env.*
+!.env.example
+
+# Certificados y llaves, por si algún día hacen falta
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+
+# --- Dependencias ---------------------------------------------------------
+# Se reconstruyen con `composer install` y `npm install`. Los archivos de
+# bloqueo (composer.lock, package-lock.json) SÍ se versionan: son los que
+# garantizan que todos instalen lo mismo.
+/vendor/
+node_modules/
+
+# --- Volcados y copias de seguridad ---------------------------------------
+# Un volcado de base de datos es la fuga más habitual de un repositorio.
+*.sql
+*.sql.gz
+*.dump
+*.bak
+*.orig
+*.rej
+*.zip
+*.rar
+*.7z
+*-bk/
+*- copia/
+*- copia.*
+
+# --- Registros y temporales -----------------------------------------------
+*.log
+/logs/
+*.tmp
+*.cache
+~$*
+
+# --- Editor y sistema operativo -------------------------------------------
+.vscode/
+.idea/
+*.code-workspace
+*.sublime-*
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ===========================================================================
+#  Lo que SÍ se versiona, y conviene no "limpiar" por error
+# ---------------------------------------------------------------------------
+#  composer.json y composer.lock   para reinstalar lo mismo
+#  config/librerias.txt y
+#  config/libreriasDevs.txt        el mapa de archivos del AS400; no llevan
+#                                  credenciales, sólo nombres de biblioteca
+#  docs/*.md                       las fuentes de los manuales
+#  vistas/manuales/*.pdf           los manuales que se reparten
+#  .claude/agents/*.md             la metodología de la casa
+# ===========================================================================

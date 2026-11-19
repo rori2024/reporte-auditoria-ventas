@@ -1,0 +1,40 @@
+# La raíz del proyecto es la raíz web: todo archivo es una URL a menos que algo
+# lo impida. Las carpetas de código (config, controladores, modelos, servicios,
+# docs) traen su propio .htaccess que las deniega entera; aquí va lo que queda.
+
+# El .env NUNCA se sirve: lleva usuario y clave del AS400.
+<FilesMatch "^\.env">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Ni los archivos de control de versiones ni los respaldos que deja un editor.
+<FilesMatch "^\.(git|gitignore)|~$|\.(bak|orig|sql|log)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+Options -Indexes
+DirectoryIndex index.php
+
+# Un aviso de PHP impreso en medio de una respuesta JSON la rompe, y lo hace de
+# la forma más opaca posible: el navegador dice "Unexpected token" y no se ve
+# de dónde salió. Al registro sí, a la respuesta no. (Ver config/respuesta.php.)
+<IfModule mod_php.c>
+    php_flag display_errors off
+    php_flag log_errors on
+</IfModule>
+<IfModule mod_php7.c>
+    php_flag display_errors off
+    php_flag log_errors on
+</IfModule>

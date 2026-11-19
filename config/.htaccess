@@ -1,0 +1,8 @@
+# Codigo, no contenido publico: solo se incluye desde index.php o php/.
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>
