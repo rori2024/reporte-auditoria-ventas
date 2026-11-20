@@ -1,0 +1,485 @@
+/* ===========================================================================
+ *  Ventana «Acerca de» — DESIGN-SYSTEM.md §11
+ *
+ *  Todo sale de los tokens de `tokens.css`. NINGÚN color suelto y ningún
+ *  nombre de token inventado: una variable que no existe no avisa, se
+ *  resuelve en el valor por omisión y la ventana se pinta con otra paleta
+ *  —ya pasó una vez con `divisas.css` y sólo se vio mirando la pantalla—.
+ *
+ *  Por eso tampoco se usan valores de reserva (`var(--x, #fff)`): el reserva
+ *  es justo lo que esconde el error.
+ * ======================================================================== */
+
+/*
+ * El bloqueo del scroll de la página mientras la ventana está abierta. La
+ * clase la pone y la quita `acerca.js`.
+ *
+ * Vive aquí y no en `estilos.css` —que es compartida— porque hoy sólo la usa
+ * esta ventana. El día que haya otro modal se sube allí; mientras, una regla
+ * global suelta en la hoja común es una que nadie sabe quién puso.
+ */
+body.sin-scroll { overflow: hidden; }
+
+.acerca {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-4);
+}
+
+/* `hidden` por sí solo no gana a `display: flex`: hay que decirlo. */
+.acerca[hidden] { display: none; }
+
+.acerca__fondo {
+    position: absolute;
+    inset: 0;
+    background: rgba(2, 6, 23, .6);
+    backdrop-filter: blur(4px);
+    animation: acerca-fondo var(--duration-base) var(--ease-standard);
+}
+
+.acerca__ventana {
+    position: relative;
+    width: 540px;
+    max-width: 100%;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface-200);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+    animation: acerca-entra var(--duration-slow) var(--ease-enter);
+}
+
+/* --- Cabecera ---------------------------------------------------------- */
+
+.acerca__cabecera {
+    flex: 0 0 auto;
+    height: 72px;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 0 var(--space-4);
+    background: var(--gradient-brand);
+}
+
+.acerca__titulo {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font: 700 18px/26px var(--font-sans);
+    color: #fff;
+}
+
+.acerca__cerrar {
+    margin-left: auto;
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    background: transparent;
+    border: 0;
+    border-radius: var(--radius-md);
+    color: #fff;
+    cursor: pointer;
+    transition: background var(--duration-fast) var(--ease-standard);
+}
+
+.acerca__cerrar:hover { background: rgba(255, 255, 255, .15); }
+
+.acerca__cerrar:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+}
+
+/* --- Cuerpo ------------------------------------------------------------ */
+
+.acerca__cuerpo {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: var(--space-6) var(--space-4) var(--space-4);
+}
+
+.acerca__identidad { text-align: center; }
+
+.acerca__sello {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto var(--space-3);
+    display: grid;
+    place-items: center;
+    background: var(--primary-subtle);
+    border-radius: 50%;
+    color: var(--primary);
+}
+
+.acerca__sistema {
+    margin: 0;
+    font: 700 24px/32px var(--font-sans);
+    color: var(--ink);
+}
+
+.acerca__descripcion {
+    margin: var(--space-2) auto 0;
+    max-width: 42ch;
+    font: 400 14px/22px var(--font-sans);
+    color: var(--ink-muted);
+}
+
+.acerca__chips {
+    margin: var(--space-3) 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-2);
+}
+
+.acerca__chip {
+    padding: var(--space-1) var(--space-3);
+    background: var(--surface-100);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    font: 600 13px/18px var(--font-sans);
+    color: var(--ink-muted);
+}
+
+.acerca__chip--version {
+    background: var(--primary-subtle);
+    border-color: transparent;
+    color: var(--primary);
+}
+
+.acerca__destacado {
+    margin: var(--space-6) 0 0;
+    padding: var(--space-4);
+    background: var(--surface-100);
+    border-radius: var(--radius-lg);
+    font: 600 15px/24px var(--font-sans);
+    color: var(--ink);
+    text-align: center;
+}
+
+/* --- Secciones --------------------------------------------------------- */
+
+.acerca__bloque { margin-top: var(--space-6); }
+
+.acerca__seccion {
+    margin: 0 0 var(--space-3);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font: 700 18px/26px var(--font-sans);
+    color: var(--ink);
+}
+
+.acerca__seccion svg { color: var(--primary); }
+
+/* «Cómo se trabaja»: una regla por fila, icono a la izquierda. */
+
+.acerca__trabajo {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: var(--space-2);
+}
+
+.acerca__regla {
+    display: flex;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background: var(--surface-100);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+}
+
+.acerca__regla-icono {
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    background: var(--primary-subtle);
+    border-radius: var(--radius-md);
+    color: var(--primary);
+}
+
+.acerca__regla-titulo {
+    margin: 0 0 2px;
+    font: 600 14px/20px var(--font-sans);
+    color: var(--ink);
+}
+
+.acerca__regla-texto {
+    margin: 0;
+    font: 400 13px/20px var(--font-sans);
+    color: var(--ink-muted);
+}
+
+/* Tecnologías: píldoras que envuelven. */
+
+.acerca__tecnologias {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.acerca__tec {
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0 var(--space-3);
+    background: var(--surface-100);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    font: 600 14px/20px var(--font-sans);
+    color: var(--ink);
+}
+
+.acerca__tec svg { color: var(--primary); }
+
+/* Desarrollador. */
+
+.acerca__dev {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-4);
+    background: var(--surface-100);
+    border-radius: var(--radius-lg);
+}
+
+.acerca__retrato {
+    position: relative;
+    flex: 0 0 auto;
+    width: 72px;
+    height: 72px;
+    display: grid;
+    place-items: center;
+    background: var(--primary);
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px var(--primary);
+    overflow: hidden;
+}
+
+.acerca__retrato-iniciales {
+    font: 700 24px/1 var(--font-sans);
+    color: var(--on-primary);
+}
+
+/* La foto encima de las iniciales: si no carga, debajo ya hay algo. */
+.acerca__retrato img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.acerca__dev-datos { min-width: 0; }
+
+.acerca__dev-nombre {
+    margin: 0;
+    font: 700 18px/26px var(--font-sans);
+    color: var(--ink);
+}
+
+.acerca__dev-cargo {
+    margin: 0;
+    font: 400 14px/22px var(--font-sans);
+    color: var(--ink-muted);
+}
+
+.acerca__contactos {
+    margin: var(--space-2) 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+.acerca__contacto {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-1) var(--space-2);
+    background: var(--surface-300);
+    border-radius: var(--radius-pill);
+    font: 500 13px/18px var(--font-sans);
+    color: var(--ink);
+    text-decoration: none;
+    transition: background var(--duration-fast) var(--ease-standard);
+}
+
+a.acerca__contacto:hover {
+    background: var(--primary-subtle);
+    color: var(--primary);
+}
+
+/* Colaboradores y soporte: la misma rejilla de dos columnas. */
+
+.acerca__rejilla {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2);
+}
+
+.acerca__tarjeta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background: var(--surface-100);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    transition: transform var(--duration-fast) var(--ease-standard),
+                border-color var(--duration-fast) var(--ease-standard);
+}
+
+.acerca__tarjeta:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-strong);
+}
+
+.acerca__tarjeta-icono {
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    color: var(--primary);
+}
+
+.acerca__avatar {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    background: var(--primary);
+    border-radius: 50%;
+    font: 700 14px/1 var(--font-sans);
+    color: var(--on-primary);
+}
+
+.acerca__tarjeta-titulo {
+    display: block;
+    font: 600 14px/20px var(--font-sans);
+    color: var(--ink);
+}
+
+.acerca__tarjeta-valor {
+    display: block;
+    font: 400 13px/20px var(--font-sans);
+    color: var(--ink-muted);
+    word-break: break-word;
+}
+
+a.acerca__tarjeta-valor { text-decoration: none; }
+a.acerca__tarjeta-valor:hover { color: var(--primary); text-decoration: underline; }
+
+/* --- Pie de la ventana ------------------------------------------------- */
+
+.acerca__pie {
+    margin-top: var(--space-6);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--border);
+    text-align: center;
+}
+
+.acerca__pie p {
+    margin: 0;
+    font: 400 12px/20px var(--font-sans);
+    color: var(--ink-muted);
+}
+
+/* --- Animación (§11) --------------------------------------------------- */
+
+@keyframes acerca-fondo {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes acerca-entra {
+    from { opacity: 0; transform: translateY(8px) scale(.98); }
+    to   { opacity: 1; transform: none; }
+}
+
+@keyframes acerca-sube {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: none; }
+}
+
+/*
+ * El escalonado de los bloques. El `--i` lo pone la vista con un contador,
+ * no a mano: las secciones se omiten solas cuando no hay datos y los
+ * números a fuego dejarían huecos en la secuencia.
+ */
+.acerca__cuerpo > * {
+    animation: acerca-sube var(--duration-slow) var(--ease-enter) backwards;
+    animation-delay: calc(var(--i, 0) * var(--stagger));
+}
+
+/* El cierre lo pinta el JS: la ventana se queda un instante antes de irse. */
+.acerca--cerrando .acerca__fondo,
+.acerca--cerrando .acerca__ventana {
+    animation: acerca-fondo 160ms var(--ease-exit) reverse forwards;
+}
+
+/*
+ * Con movimiento reducido, sólo opacidad. Y el escalonado se va: esperar
+ * turnos sin movimiento es sólo esperar.
+ */
+@media (prefers-reduced-motion: reduce) {
+    .acerca__fondo,
+    .acerca__ventana,
+    .acerca__cuerpo > * {
+        animation: acerca-fondo var(--duration-fast) linear;
+        animation-delay: 0s;
+    }
+}
+
+/* --- Móvil: hoja inferior (§13) --------------------------------------- */
+
+@media (max-width: 640px) {
+    .acerca {
+        align-items: flex-end;
+        padding: 0;
+    }
+
+    .acerca__ventana {
+        width: 100%;
+        max-height: 92vh;
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+        border-bottom: 0;
+        animation-name: acerca-hoja;
+    }
+
+    .acerca__rejilla { grid-template-columns: minmax(0, 1fr); }
+
+    .acerca__dev {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .acerca__contactos { justify-content: center; }
+}
+
+@keyframes acerca-hoja {
+    from { opacity: 0; transform: translateY(100%); }
+    to   { opacity: 1; transform: none; }
+}
+
+@media (max-width: 640px) and (prefers-reduced-motion: reduce) {
+    .acerca__ventana { animation-name: acerca-fondo; }
+}

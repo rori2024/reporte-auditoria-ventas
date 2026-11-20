@@ -448,6 +448,34 @@
     .aud-pie .btn { flex: 1 1 auto; justify-content: center; }
 }
 
+/* --- Que el asistente no tape la unica accion de la pantalla ------------- */
+
+/* El boton flotante ya tiene su columna reservada en `asistente.css`, asi que
+   cerrado no estorba a nada. El PANEL abierto es otra cosa: mide 560 px de
+   alto, se ancla abajo a la derecha y sube hasta meterse debajo de la tarjeta
+   del formulario, que vive arriba a la derecha y es pegajosa. Resultado: con
+   el asistente abierto no se podia pulsar «Auditar».
+
+   En la mayoria de las aplicaciones eso da igual —se cierra el panel y ya—,
+   pero aqui la pantalla es UNA y ese boton es lo unico que hace. Un asistente
+   que tapa justo aquello sobre lo que esta explicando no ayuda: estorba.
+
+   El arreglo va AQUI y no en `asistente.css` a proposito: el componente es el
+   mismo en toda la casa y no tiene por que saber que esta aplicacion pone un
+   formulario pegajoso en esa esquina. Lo que sabe de mas es esta hoja.
+
+   La cuenta: el panel acaba a `100vh - 98px` (24 de margen, 62 del boton y 12
+   de hueco). La tarjeta del formulario termina sobre los 470 px desde arriba
+   sin desplazar la pagina, que es el caso peor. De ahi el 568. El suelo de
+   340 px es para que en una pantalla baja el panel siga siendo usable: ahi se
+   acepta el solape, porque la alternativa es un panel donde no cabe una
+   respuesta. */
+@media (min-width: 981px) {
+    body:has(#asistente) .asis-panel {
+        max-height: max(340px, calc(100vh - 568px));
+    }
+}
+
 /* --- Impreso ------------------------------------------------------------ */
 
 /* Esto se imprime: alguien lleva el informe a la tienda a buscar la factura.

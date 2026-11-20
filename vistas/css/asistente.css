@@ -1,0 +1,599 @@
+/* ===========================================================================
+ *  Asistente flotante — «Carlos Flores Bot»
+ *
+ *  El diseño NO se reinterpreta: medidas, radios, sombras, tiempos y
+ *  animaciones son los del asistente original de IntraNet RORI. Lo único que
+ *  se cambia aquí es de dónde salen los COLORES.
+ *
+ *  POR QUÉ HAY UN BLOQUE DE ALIAS Y NO UNA PALETA PROPIA
+ *  -----------------------------------------------------
+ *  El original trae sus propios tokens (`--card-bg`, `--accent-color`,
+ *  `--brand-gradient`…) con sus valores de tema claro y oscuro. Esta casa ya
+ *  tiene los suyos en `tokens.css`, con otros nombres y, en oscuro, con otros
+ *  valores. Copiar la paleta del original dejaría dos sistemas de color en la
+ *  misma pantalla: el día que cambie el azul de la casa, el asistente se
+ *  quedaría con el viejo y nadie sabría por qué.
+ *
+ *  Así que el bloque de abajo traduce los nombres del asistente a los tokens
+ *  de `tokens.css` y el resto del archivo queda igual que el original. Ningún
+ *  hex suelto en ninguna regla: el único literal del archivo está declarado
+ *  como token y explicado.
+ *
+ *  TRES SUSTITUCIONES QUE NO SON CAPRICHO
+ *  --------------------------------------
+ *  1. Donde el original escribe `#fff` sobre el color de acento, aquí va
+ *     `var(--on-primary)`. En el tema oscuro de esta casa `--primary` es un
+ *     celeste claro (#38bdf8) y el blanco encima no se lee; `--on-primary` es
+ *     justo el color que la casa declara para ir encima de `--primary`.
+ *  2. Donde el original usa `rgba(var(--accent-rgb), …)` —un color de la
+ *     paleta descompuesto en tres números— aquí va `color-mix()` sobre
+ *     `--primary`. Así no hay que mantener el mismo azul escrito dos veces.
+ *  3. La cabecera del panel lleva el degradado de marca, que es oscuro en los
+ *     DOS temas, así que su texto va en `--on-navy` (blanco) y no en `--ink`.
+ * ======================================================================== */
+
+:root {
+    /* --- Nombres del asistente -> tokens de la casa ---------------------- */
+
+    --asis-bg-subtle: var(--surface-100);
+    --asis-card-bg: var(--surface-200);
+    --asis-hover-bg: var(--surface-300);
+    --asis-border-color: var(--border);
+    --asis-text-primary: var(--ink);
+    --asis-text-secondary: var(--ink-muted);
+    --asis-text-muted: var(--ink-muted);
+    --asis-accent-color: var(--primary);
+    --asis-accent-light: var(--primary-subtle);
+    --asis-on-accent: var(--on-primary);
+    --asis-on-brand: var(--on-navy);
+    --asis-brand-gradient: var(--gradient-brand);
+    --asis-scroll-thumb: var(--border-strong);
+    --asis-shadow: var(--shadow-sm);
+    --asis-shadow-lg: var(--shadow-md);
+    --asis-shadow-accent: 0 6px 18px color-mix(in srgb, var(--primary) 24%, transparent);
+    --asis-ring: 0 0 0 3px color-mix(in srgb, var(--primary) 13%, transparent);
+
+    /* El punto verde de «en línea». El del botón flotante va sobre un aro
+     * blanco y puede usar el verde del tema activo; el de la cabecera del
+     * panel va sobre el degradado de marca, que es oscuro en los dos temas,
+     * y con el verde del tema claro (#15803d) no se vería. Ése usa siempre
+     * el verde del tema oscuro de `tokens.css`, declarado aquí una vez. */
+    --asis-verde: var(--dato-verde);
+    --asis-verde-sobre-marca: #4ade80;
+
+    /* Escala tipográfica y medidas del original. Las que la casa ya tiene con
+     * otro nombre se alian; las que no existen se declaran con su valor. */
+    --asis-fs-xs: 0.75rem;
+    --asis-fs-sm: 0.8125rem;
+    --asis-fs-md: 1rem;
+    --asis-sp-2: var(--space-2);
+    --asis-r-sm: var(--radius-sm);
+    --asis-r-lg: var(--radius-lg);
+    --asis-r-xl: 16px;              /* el mismo radio que la ventana «Acerca de» */
+    --asis-r-full: var(--radius-pill);
+    --asis-t-fast: var(--duration-fast) var(--ease-standard);
+    --asis-t-base: var(--duration-base) var(--ease-standard);
+    --asis-t-slow: var(--duration-slow) var(--ease-enter);
+
+    /* Por encima de la cabecera (50) y por debajo de «Acerca de» (1000): esa
+     * ventana cubre la pantalla entera y el asistente no debe asomar. */
+    --asis-z-panel: 80;
+}
+
+/* ===========================================================================
+ *  Reserva de sitio para el botón flotante
+ *
+ *  El botón es fijo y ocupa 62 px en la esquina inferior derecha. Ahí caían
+ *  dos cosas que no se pueden tapar: el «Descargar Excel» del final de la
+ *  tabla y el pie, que es donde están los manuales y el «Acerca de». En vez
+ *  de mover el botón —el diseño es el del original— se les deja el hueco.
+ *
+ *  LA RESERVA VA AL LADO, NO DEBAJO, Y ESO NO ES UN DETALLE
+ *  --------------------------------------------------------
+ *  Un `padding-bottom` sólo libraría el momento en que la página está
+ *  desplazada del todo hacia abajo. A media página, cualquier posición de
+ *  scroll puede dejar un botón justo debajo del flotante: lo único que no
+ *  depende del scroll es la COLUMNA. Reservando los 94 px de la derecha,
+ *  esos controles no comparten nunca el eje horizontal con el botón, se mire
+ *  la página desde donde se mire.
+ *
+ *  94 px = 24 de margen del botón + 62 de botón + 8 de aire.
+ *
+ *  Van con `body:has(#asistente)` porque `errorAcceso.php` carga las mismas
+ *  hojas y pinta el mismo pie, pero NO lleva asistente: allí la reserva sería
+ *  un hueco sin motivo. Si el navegador no entiende `:has()`, la regla se
+ *  ignora entera y lo único que se pierde es la reserva.
+ * ======================================================================== */
+
+/* El «Descargar Excel» y el «Ver más filas» del final de la tabla. */
+body:has(#asistente) .aud-pie { padding-right: 94px; }
+
+/* El «Acerca de» y la versión, que van pegados a la derecha de la barra. */
+body:has(#asistente) .footer__barra { padding-right: 94px; }
+
+/* Las columnas del pie —entre ellas los botones de los manuales—. Sólo de
+ * tableta para arriba: ahí el pie reparte el ancho entre tres o cuatro
+ * columnas y 94 px no se notan. En un móvil el pie es una sola columna y
+ * quitarle 94 px de ancho al texto sí se notaría; allí todo va alineado a la
+ * izquierda y el botón flotante no llega. */
+@media (min-width: 641px) {
+    body:has(#asistente) .footer__cols { padding-right: 94px; }
+}
+
+/* ===========================================================================
+ *  El asistente
+ * ======================================================================== */
+
+.asistente {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: var(--asis-z-panel);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 14px;
+    font-family: var(--font-sans);
+}
+
+/* --------------------------------------------------------------------------
+   Boton flotante
+   -------------------------------------------------------------------------- */
+
+.asis-fab {
+    position: relative;
+    width: 62px;
+    height: 62px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    cursor: pointer;
+    background: var(--asis-brand-gradient);
+    box-shadow: var(--asis-shadow-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform var(--asis-t-base), box-shadow var(--asis-t-base);
+    order: 2;
+}
+
+.asis-fab:hover,
+.asis-fab:focus-visible {
+    transform: translateY(-3px) scale(1.04);
+    box-shadow: var(--asis-shadow-lg), var(--asis-shadow-accent);
+}
+
+.asis-fab:active { transform: translateY(0) scale(0.98); }
+
+/* La cara va sobre el degradado: quedan 3px de aro enmarcando la foto. */
+.asis-fab-cara {
+    position: relative;
+    z-index: 1;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--asis-card-bg);
+    color: var(--asis-accent-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.05rem;
+}
+
+.asis-fab-cara img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* Punto verde de "en linea". */
+.asis-fab-punto {
+    position: absolute;
+    z-index: 2;
+    right: 3px;
+    bottom: 3px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--asis-verde);
+    border: 2.5px solid var(--asis-card-bg);
+}
+
+/* Aro que late para que se note sin llegar a molestar. */
+.asis-fab-aro {
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 2px solid var(--asis-accent-color);
+    opacity: 0;
+    animation: asis-latido 2.8s ease-out infinite;
+}
+
+@keyframes asis-latido {
+    0%   { transform: scale(0.94); opacity: 0.55; }
+    70%  { transform: scale(1.25); opacity: 0; }
+    100% { transform: scale(1.25); opacity: 0; }
+}
+
+/* Con el panel abierto el boton deja de llamar la atencion. */
+.asistente.abierto .asis-fab-aro { animation: none; }
+.asistente.abierto .asis-fab-globo { display: none; }
+
+.asis-fab-globo {
+    position: absolute;
+    right: calc(100% + 12px);
+    top: 50%;
+    transform: translateY(-50%);
+    white-space: nowrap;
+    padding: 8px 14px;
+    border-radius: var(--asis-r-full);
+    background: var(--asis-card-bg);
+    color: var(--asis-text-primary);
+    border: 1px solid var(--asis-border-color);
+    box-shadow: var(--asis-shadow);
+    font-size: var(--asis-fs-sm);
+    font-weight: 600;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--asis-t-fast), transform var(--asis-t-fast);
+}
+
+.asis-fab:hover .asis-fab-globo,
+.asis-fab:focus-visible .asis-fab-globo {
+    opacity: 1;
+    transform: translateY(-50%) translateX(-4px);
+}
+
+/* --------------------------------------------------------------------------
+   Panel
+   -------------------------------------------------------------------------- */
+
+.asis-panel {
+    order: 1;
+    width: 380px;
+    max-width: calc(100vw - 32px);
+    height: 560px;
+    max-height: calc(100vh - 130px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--asis-card-bg);
+    border: 1px solid var(--asis-border-color);
+    border-radius: var(--asis-r-xl);
+    box-shadow: var(--asis-shadow-lg);
+    transform-origin: bottom right;
+    animation: asis-entrar var(--asis-t-slow) both;
+}
+
+/* El display:flex de arriba gana al display:none que el navegador le da a
+   [hidden], asi que sin esta regla el panel sale abierto y la X no lo cierra. */
+.asis-panel[hidden] { display: none; }
+
+@keyframes asis-entrar {
+    from { opacity: 0; transform: translateY(16px) scale(0.96); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.asis-cabecera {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 12px 14px 16px;
+    background: var(--asis-brand-gradient);
+    color: var(--asis-on-brand);
+}
+
+.asis-cabecera-cara {
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    overflow: hidden;
+    background: rgb(255 255 255 / 20%);
+    border: 2px solid rgb(255 255 255 / 55%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+.asis-cabecera-cara img { width: 100%; height: 100%; object-fit: cover; }
+
+.asis-cabecera-texto { flex: 1; min-width: 0; }
+
+.asis-cabecera-texto h3 {
+    margin: 0;
+    font-size: var(--asis-fs-md);
+    font-weight: 700;
+    color: var(--asis-on-brand);
+}
+
+.asis-cabecera-texto p {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 2px 0 0;
+    font-size: var(--asis-fs-xs);
+    color: rgb(255 255 255 / 85%);
+}
+
+.asis-en-linea {
+    width: 8px;
+    height: 8px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--asis-verde-sobre-marca);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--asis-verde-sobre-marca) 30%, transparent);
+}
+
+/* El botón de icono del asistente NO es `.icon-btn` de la casa: ése está
+   pensado para la cabecera de la aplicación (40×40, cuadrado con borde). Aquí
+   son dos botones de 32 px redondos dentro de una cabecera degradada. */
+.asis-btn-icono {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: rgb(255 255 255 / 16%);
+    color: var(--asis-on-brand);
+    cursor: pointer;
+    transition: background var(--asis-t-fast);
+}
+
+.asis-btn-icono:hover { background: rgb(255 255 255 / 30%); }
+
+/* --------------------------------------------------------------------------
+   Hilo de mensajes
+   -------------------------------------------------------------------------- */
+
+.asis-hilo {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: var(--asis-bg-subtle);
+    scrollbar-width: thin;
+}
+
+.asis-hilo::-webkit-scrollbar { width: 6px; }
+.asis-hilo::-webkit-scrollbar-thumb {
+    background: var(--asis-scroll-thumb);
+    border-radius: var(--asis-r-full);
+}
+
+.asis-msg {
+    max-width: 88%;
+    padding: 11px 14px;
+    font-size: var(--asis-fs-sm);
+    line-height: 1.5;
+    border-radius: var(--asis-r-lg);
+    animation: asis-msg-entrar var(--asis-t-base) both;
+}
+
+@keyframes asis-msg-entrar {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.asis-msg-bot {
+    align-self: flex-start;
+    background: var(--asis-card-bg);
+    color: var(--asis-text-primary);
+    border: 1px solid var(--asis-border-color);
+    border-bottom-left-radius: var(--asis-r-sm);
+}
+
+.asis-msg-yo {
+    align-self: flex-end;
+    background: var(--asis-accent-color);
+    color: var(--asis-on-accent);
+    border-bottom-right-radius: var(--asis-r-sm);
+    font-weight: 600;
+}
+
+.asis-msg p { margin: 0 0 8px; }
+.asis-msg p:last-child { margin-bottom: 0; }
+.asis-msg strong { color: inherit; font-weight: 700; }
+
+.asis-msg ul {
+    margin: 0 0 8px;
+    padding-left: 18px;
+}
+
+.asis-msg li { margin-bottom: 4px; }
+.asis-msg li:last-child { margin-bottom: 0; }
+
+/* Los códigos de archivo del AS400 —IDP210, RTP325— en monoespaciada, igual
+   que en el resto de la pantalla: son nombres de archivo, no palabras. */
+.asis-msg code {
+    font-family: var(--font-mono);
+    font-size: 0.95em;
+}
+
+/* Puntos de "escribiendo". */
+.asis-escribiendo {
+    align-self: flex-start;
+    display: flex;
+    gap: 4px;
+    padding: 13px 16px;
+    background: var(--asis-card-bg);
+    border: 1px solid var(--asis-border-color);
+    border-radius: var(--asis-r-lg);
+    border-bottom-left-radius: var(--asis-r-sm);
+}
+
+.asis-escribiendo span {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--asis-text-secondary);
+    animation: asis-punto 1.3s infinite ease-in-out;
+}
+
+.asis-escribiendo span:nth-child(2) { animation-delay: 0.18s; }
+.asis-escribiendo span:nth-child(3) { animation-delay: 0.36s; }
+
+@keyframes asis-punto {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30%           { transform: translateY(-5px); opacity: 1; }
+}
+
+/* --------------------------------------------------------------------------
+   Opciones
+   -------------------------------------------------------------------------- */
+
+.asis-opciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-self: flex-start;
+    max-width: 100%;
+    animation: asis-msg-entrar var(--asis-t-base) both;
+}
+
+.asis-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 14px;
+    border: 1px solid var(--asis-accent-color);
+    border-radius: var(--asis-r-full);
+    background: var(--asis-card-bg);
+    color: var(--asis-accent-color);
+    font-family: inherit;
+    font-size: var(--asis-fs-xs);
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    transition: background var(--asis-t-fast), color var(--asis-t-fast), transform var(--asis-t-fast);
+}
+
+.asis-chip:hover {
+    background: var(--asis-accent-color);
+    color: var(--asis-on-accent);
+    transform: translateY(-1px);
+}
+
+/* Los iconos son los SVG en línea de `vistas/iconos.php` y heredan el color
+   del texto, así que cambian solos con el chip y con el tema. */
+.asis-chip .icono { flex: 0 0 auto; }
+
+/* Chip de accion: lleva a un modulo, asi que va relleno de entrada. */
+.asis-chip-ir {
+    background: var(--asis-accent-light);
+    border-color: transparent;
+}
+
+.asis-chip-suave {
+    border-color: var(--asis-border-color);
+    color: var(--asis-text-secondary);
+}
+
+.asis-chip-suave:hover {
+    background: var(--asis-hover-bg);
+    color: var(--asis-text-primary);
+}
+
+/* --------------------------------------------------------------------------
+   Pie
+   -------------------------------------------------------------------------- */
+
+.asis-pie {
+    padding: 12px 16px 14px;
+    border-top: 1px solid var(--asis-border-color);
+    background: var(--asis-card-bg);
+}
+
+/* En el original el buscador lleva ademas la clase compartida .search-box del
+   sistema de diseño; sus reglas van aqui integradas para no depender de ella. */
+.asis-buscador {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 280px;
+    min-width: 0;
+    height: 40px;
+    padding: 9px 14px;
+    border: 1px solid var(--asis-border-color);
+    border-radius: var(--asis-r-full);
+    background: var(--asis-bg-subtle);
+    transition: border-color var(--asis-t-fast), box-shadow var(--asis-t-fast), background-color var(--asis-t-fast);
+}
+
+.asis-buscador:focus-within {
+    border-color: var(--asis-accent-color);
+    background-color: var(--asis-card-bg);
+    box-shadow: var(--asis-ring);
+}
+
+.asis-buscador .icono { color: var(--asis-text-secondary); flex-shrink: 0; }
+
+.asis-buscador input {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    padding: 0 var(--asis-sp-2);
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--asis-text-primary);
+    font-family: inherit;
+    font-size: var(--asis-fs-sm);
+}
+
+.asis-buscador input::placeholder { color: var(--asis-text-muted); }
+
+.asis-nota {
+    margin: 8px 2px 0;
+    font-size: var(--asis-fs-xs);
+    color: var(--asis-text-secondary);
+    text-align: center;
+}
+
+/* --------------------------------------------------------------------------
+   Pantallas pequenas: el panel ocupa el ancho util
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 480px) {
+    .asistente { right: 16px; bottom: 16px; }
+
+    .asis-panel {
+        width: calc(100vw - 32px);
+        height: calc(100vh - 120px);
+    }
+
+    /* El botón flotante se acerca 8 px al borde: 16 + 62 + 8. */
+    body:has(#asistente) .aud-pie,
+    body:has(#asistente) .footer__barra { padding-right: 86px; }
+}
+
+/* Quien pide menos movimiento no ve el latido ni las entradas. */
+@media (prefers-reduced-motion: reduce) {
+    .asis-fab-aro,
+    .asis-escribiendo span,
+    .asis-panel,
+    .asis-msg,
+    .asis-opciones { animation: none; }
+}
+
+/* Esto se imprime: el informe se lleva en papel a la tienda. Un asistente de
+   pantalla no tiene nada que hacer ahí. */
+@media print {
+    .asistente { display: none !important; }
+
+    /* Sin botón flotante no hay nada que reservar. */
+    body:has(#asistente) .aud-pie,
+    body:has(#asistente) .footer__barra,
+    body:has(#asistente) .footer__cols { padding-right: 0; }
+}

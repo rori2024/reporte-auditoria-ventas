@@ -54,6 +54,8 @@ return [
         'vistas/css/tablas.css',
         'vistas/css/style-loader.css',
         'vistas/css/auditoria.css',
+        'vistas/css/acerca.css',
+        'vistas/css/asistente.css',
     ],
 
     /*
@@ -64,6 +66,8 @@ return [
         'vistas/js/loader.js',
         'vistas/js/tema.js',
         'vistas/js/auditoria.js',
+        'vistas/js/acerca.js',
+        'vistas/js/asistente.js',
     ],
 
     /*
@@ -91,9 +95,26 @@ return [
      * Lo que va DESPUÉS del `<main>`: ventanas y paneles que se superponen a
      * la página. El pie no se declara aquí, va siempre.
      *
+     * `acerca` tiene que estar AQUÍ y no en `modulos`: cubre la pantalla
+     * entera con `position: fixed`, y dentro del `<main>` heredaría sus
+     * márgenes y su recorte, dejando el fondo oscuro corto por los lados.
+     * Además es esta línea la que hace aparecer el botón «Acerca de» del pie
+     * —`vistas/modulos/pie.php` sólo lo pinta si la capa está declarada—, así
+     * que quitarla de aquí quita el botón y la ventana a la vez, sin dejar un
+     * botón que no abre nada.
+     *
      * La ficha de un documento es un `<dialog>` y vive dentro del módulo
      * `resultado`, no aquí: es parte de esa pantalla y no una capa de la
      * aplicación.
+     *
+     * El `asistente` está aquí por lo mismo: es un botón fijo pegado a la
+     * esquina inferior derecha y dentro del `<main>` heredaría sus márgenes.
+     * Va DESPUÉS de `acerca` porque la ventana «Acerca de» tiene que quedar
+     * por encima de él —cubre la pantalla entera— y porque el asistente no
+     * estorba a nada que se pinte antes.
      */
-    'capas' => [],
+    'capas' => [
+        'acerca',
+        'asistente',
+    ],
 ];

@@ -60,6 +60,17 @@ const ICONOS_SVG = [
     'filtro'      => '<path d="M3 4h18l-7 8v7l-4 2v-9Z"/>',
     'recargar'    => '<path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5"/>',
     'tienda'      => '<path d="M3 9h18l-1.5-5H4.5L3 9Z"/><path d="M4 9v11a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9"/><path d="M9 21v-6h6v6"/>',
+
+    /*
+     * Asistente flotante. Los cuatro los usa `vistas/modulos/asistente.php`,
+     * que los pinta en `<template>` para que `vistas/js/asistente.js` los
+     * clone: así los chips de la conversación salen de esta misma lista y no
+     * hay trazados SVG escritos dentro de un `.js`.
+     */
+    'brujula'          => '<circle cx="12" cy="12" r="10"/><path d="m16.24 7.76-2.12 6.36-6.36 2.12 2.12-6.36 6.36-2.12Z"/>',
+    'flecha-izquierda' => '<path d="M19 12H5M12 19l-7-7 7-7"/>',
+    'flecha-derecha'   => '<path d="M5 12h14M12 5l7 7-7 7"/>',
+    'lista'            => '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
 ];
 
 /**
