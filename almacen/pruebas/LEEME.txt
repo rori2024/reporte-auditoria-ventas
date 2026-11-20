@@ -1,0 +1,9 @@
+Lo que escribe `php cli/probar-excel.php`: un Excel armado con datos
+INVENTADOS, para comprobar el formato sin tocar el AS400.
+
+Aqui dentro no hay nada que valga la pena guardar. Se puede borrar entero.
+
+Los informes de verdad NO van aqui: van a `almacen/auditoria/`, y esos si
+cuestan una consulta al AS400. Estan separados a proposito, porque una vez un
+comodin que buscaba el archivo de pruebas se llevo por delante el informe de
+noviembre.

@@ -1,0 +1,305 @@
+/* ===========================================================================
+ *  La matriz diaria — docs/06-DISENO-UI.md §4
+ *
+ *  31 filas x 13 tiendas + columnas de resumen. El Excel congela en `P34`;
+ *  aquí se fijan la cabecera, la primera columna y el bloque de resumen, que
+ *  son los tres sitios donde está la mirada.
+ * ======================================================================== */
+
+.tabla-envoltura {
+    overflow: auto;
+    max-height: 78vh;
+    border-top: 1px solid var(--border);
+}
+
+.matriz {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+    font-size: .82rem;
+}
+
+.matriz th,
+.matriz td {
+    padding: 0 var(--space-2);
+    height: var(--fila-alto);
+    border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    white-space: nowrap;
+}
+
+.matriz tbody td,
+.matriz tfoot td {
+    font-variant-numeric: tabular-nums lining-nums;
+    text-align: right;
+}
+
+/* --- Cabecera fija, en dos niveles -------------------------------------
+ *
+ * Zona arriba, tienda debajo. La tabla ES la pantalla, así que el encabezado
+ * va en `navy` y no en gris; y el grupo combinado encima va en `primary`
+ * para distinguirse de él, como pide el componente de tabla.
+ * -------------------------------------------------------------------- */
+
+.matriz thead th {
+    position: sticky;
+    z-index: 3;
+    background: var(--navy);
+    color: var(--on-navy);
+    font: 600 12px/16px var(--font-sans);
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    text-align: right;
+    vertical-align: bottom;
+    padding-top: var(--space-2);
+    padding-bottom: var(--space-2);
+    /* La cabecera va sobre fondo oscuro, así que su borde no puede ser el
+     * gris claro de la tabla o se ve una línea blanca cortando el azul. */
+    border-right-color: rgb(255 255 255 / 18%);
+    border-bottom-color: var(--navy);
+}
+.matriz thead th:first-child { text-align: left; }
+
+/* La fila de zonas se queda arriba del todo; la de tiendas, justo debajo.
+ *
+ * El selector es `tr:not(:first-child)` y NO `tr:last-child`, que es lo que
+ * había. Con `last-child`, una tabla cuyo `thead` tiene UNA SOLA fila —la de
+ * descuentos, la de carga de presupuesto— la veía como «la última» y se
+ * pegaba 32 px por debajo del borde, tapando para siempre la primera fila del
+ * cuerpo: en descuentos, TRAJES no se llegaba a ver nunca.
+ *
+ * No se notaba sin desplazar, porque `sticky` sólo mueve el elemento cuando
+ * hace falta: con la tabla arriba del todo el encabezado está en su sitio y
+ * no tapa nada. Basta un píxel de scroll para que se despegue y se coma la
+ * fila. Lo vio Carlos usando la pantalla; yo lo había dado por bueno midiendo
+ * sin desplazar. */
+.matriz thead tr:first-child th { top: 0; }
+.matriz thead tr:not(:first-child) th { top: 32px; }
+.matriz thead th[rowspan] { top: 0; }
+
+.matriz thead .col-zona {
+    background: var(--primary);
+    color: var(--on-primary);
+    text-align: center;
+    letter-spacing: .08em;
+    border-bottom: 1px solid rgb(255 255 255 / 25%);
+}
+
+/* El filo marca dónde empieza cada zona, y sigue visible al bajar por la
+ * tabla: si sólo estuviera en el encabezado, la agrupación se perdería en
+ * cuanto se desplaza una fila. */
+.matriz .inicia-zona { border-left: 2px solid var(--primary); }
+.matriz thead .inicia-zona { border-left-color: rgb(255 255 255 / 45%); }
+
+/* --- Primera columna fija (el día) ------------------------------------- */
+
+.matriz .col-dia {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: var(--surface-200);
+    text-align: left;
+    font-weight: 600;
+    box-shadow: 1px 0 0 var(--border);
+}
+.matriz thead .col-dia { z-index: 4; background: var(--navy); }
+
+/* El día de la semana va junto al número, como en el libro: el patrón
+ * semanal es la clave de lectura del comercio. */
+.col-dia__semana { color: var(--ink-muted); font-weight: 400; font-size: .74rem; margin-right: 4px; }
+.matriz thead .col-dia__semana { color: var(--on-navy-muted); }
+
+/* --- Domingos ----------------------------------------------------------- */
+
+/* El libro los pinta A MANO al inicio de cada mes, en los cuatro reportes
+ * diarios. Aquí sale del calendario. */
+.matriz tbody tr.es-domingo td { background: var(--dato-domingo-bg); }
+.matriz tbody tr.es-domingo .col-dia {
+    background: var(--dato-domingo-bg);
+    box-shadow: inset 3px 0 0 var(--dato-domingo-borde), 1px 0 0 var(--border);
+}
+
+/* Bandeado muy tenue: con 13 columnas la vista se pierde de fila. Va sobre
+ * `surface-100`, que es apenas un tono por debajo del blanco — más contraste
+ * aquí competiría con el amarillo del domingo y con los estados.
+ *
+ * El `:not(.es-domingo)` NO es adorno. Sin él, las dos reglas tienen la
+ * MISMA especificidad (0,2,3) y gana la que se declara después, que es ésta:
+ * los domingos en posición par perdían su amarillo y los impares no, así que
+ * unos salían marcados y otros no. Excluirlos aquí deja claro además a quién
+ * se aplica el bandeado, que es a todo lo que no sea un día señalado. */
+.matriz tbody tr:nth-child(even):not(.es-domingo):not(.mes-abierto):not(.mes-futuro) td
+    { background: var(--surface-100); }
+
+.matriz tbody tr:hover td { background: var(--primary-subtle); }
+.matriz tbody tr.es-domingo:hover td { background: var(--dato-domingo-bg); }
+
+/* --- La columna de total de fila manda --------------------------------- */
+
+/* Fija a la derecha: con 13 tiendas la tabla no cabe y el total se iba fuera
+ * de pantalla. Es la columna que más se mira, así que no puede ser la que se
+ * pierde al desplazar. */
+.matriz .col-total {
+    position: sticky;
+    right: 0;
+    z-index: 2;
+    font-weight: 700;
+    background: var(--surface-300);
+    border-left: 2px solid var(--border-strong);
+    box-shadow: -1px 0 0 var(--border-strong);
+}
+.matriz thead .col-total { z-index: 4; background: var(--navy); }
+.matriz tfoot .col-total { z-index: 3; }
+.matriz tbody tr.es-domingo .col-total { background: var(--dato-domingo-bg); }
+
+/* --- Estados de día ----------------------------------------------------- */
+
+/* Cada celda muestra importe O estado, nunca los dos. Un CERRADA ocupa la
+ * celda completa, centrado y en versalitas pequeñas. */
+.estado {
+    display: block;
+    text-align: center;
+    font-size: .64rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    border-radius: var(--radius-sm);
+    padding: 1px 2px;
+}
+.estado--cerrada      { background: var(--dato-cerrada-bg);      color: var(--dato-cerrada-tx); }
+.estado--sin-ventas   { background: var(--dato-sinventas-bg);    color: var(--dato-sinventas-tx); }
+.estado--sin-reportar { background: var(--dato-sinreportar-bg);  color: var(--dato-sinreportar-tx); }
+.estado--feriado      { background: var(--dato-feriado-bg);      color: var(--dato-feriado-tx); }
+
+/* Vacío y cero NO son lo mismo: sin dato se pinta «—», un cero real `0,00`.
+ * El libro los confunde y así un día sin reportar se lee como un día malo. */
+.sin-dato { color: var(--ink-muted); }
+
+/* --- Celda con carga manual -------------------------------------------- */
+
+/* La marca importa: el valor que se ve no es el que dio el sistema, y quien
+ * lo mira tiene derecho a saberlo sin abrir nada. */
+td.con-override {
+    background: var(--dato-entrada-bg);
+    box-shadow: inset 0 -2px 0 var(--dato-entrada-borde);
+}
+td.con-override::after {
+    content: "M";
+    font-size: .6rem; font-weight: 700;
+    color: var(--dato-entrada-borde);
+    margin-left: 3px; vertical-align: super;
+}
+
+/* --- Bloque de resumen -------------------------------------------------
+ *
+ * NO lleva `position: sticky`, y es a propósito. Lo llevó: las diez filas
+ * quedaban ancladas a `bottom: 0`, o sea todas en el mismo sitio, apiladas
+ * una encima de otra. Sólo se veía la última —«días de venta»— y las otras
+ * nueve (peso, comparativo, cumplimiento, proyección) eran invisibles. La
+ * tabla parecía correcta y faltaba el bloque entero.
+ *
+ * Además es lo fiel al libro: Excel congela en `P34`, así que las filas de
+ * resumen quedan POR DEBAJO de la línea de congelación y se desplazan.
+ */
+.matriz tfoot td,
+.matriz tfoot th {
+    background: var(--surface-300);
+    border-top: 1px solid var(--border-strong);
+    font-weight: 600;
+}
+.matriz tfoot tr.fila-separada td,
+.matriz tfoot tr.fila-separada th { border-top: 2px solid var(--border-strong); }
+
+.matriz tfoot .rotulo {
+    text-align: left;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+}
+
+/* --- Signo de los números ---------------------------------------------- */
+
+.negativo { color: var(--dato-negativo); }
+.positivo { color: var(--dato-positivo); }
+
+/* En las filas de diferencia el libro pinta el fondo del negativo
+ * (#FFC7CE sobre texto #9C0006). Se conserva el par. */
+.matriz tfoot td.negativo { background: var(--dato-negativo-bg); color: var(--dato-negativo); }
+
+/* --- Tabla sencilla, para los listados que no son la matriz ------------ */
+
+.tabla { border-collapse: collapse; width: 100%; font-size: .85rem; }
+.tabla th, .tabla td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border); text-align: left; }
+.tabla thead th { background: var(--surface-300); font-weight: 600; white-space: nowrap; }
+.tabla td.num, .tabla th.num { text-align: right; }
+
+/* --- Impresión ---------------------------------------------------------- */
+
+@media print {
+    .app-header, .app-footer, .panel__acciones, .saltar-al-contenido { display: none !important; }
+    .tabla-envoltura { overflow: visible; max-height: none; border: 0; }
+    .panel { border: 0; }
+    /* Sin esto, una tabla de 39 filas que parte de página pierde la cabecera
+     * y la segunda hoja es una rejilla de números sin nombre. */
+    .matriz thead { display: table-header-group; }
+    .matriz tfoot { display: table-footer-group; }
+    .matriz thead th { position: static; background: var(--surface-300); color: var(--ink); }
+    .matriz .col-dia, .matriz tfoot td, .matriz tfoot th { position: static; }
+    .matriz tbody tr.es-domingo td { background: var(--dato-domingo-bg) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
+/* Columna resaltada al pasar el cursor: con 13 columnas y 31 filas, seguir
+ * una tienda con la vista cuesta. Es lo que uno hace con el dedo en el papel. */
+.matriz td.col-resaltada,
+.matriz th.col-resaltada:not(thead th) { background: var(--primary-subtle); }
+.matriz tbody tr.es-domingo td.col-resaltada { background: var(--dato-domingo-bg); }
+
+/* Sólo para lectores de pantalla. */
+.sr-solo {
+    position: absolute; width: 1px; height: 1px;
+    padding: 0; margin: -1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* --- Meses: el que está en curso y los que no han llegado ---------------
+ *
+ * Sólo en las acumuladas. El libro deja los meses futuros en CERO, y un cero
+ * no se distingue de una venta de cero: noviembre y diciembre parecen dos
+ * meses catastróficos en lugar de dos meses que no han pasado. Aquí los
+ * futuros van atenuados y con «—», y el mes en curso marcado, porque su
+ * cifra todavía puede cambiar.
+ *
+ * El `:not()` del bandeado de arriba NO es adorno, por lo mismo que con los
+ * domingos: sin él las dos reglas empatan en especificidad y el bandeado,
+ * que va después, le gana a esto en las filas pares. Pasó con los domingos
+ * y la mitad salía sin marcar. */
+.matriz tbody tr.mes-abierto td,
+.matriz tbody tr.mes-abierto th { background: var(--dato-entrada-bg); }
+.matriz tbody tr.mes-abierto .col-dia {
+    background: var(--dato-entrada-bg);
+    box-shadow: inset 3px 0 0 var(--dato-entrada-borde), 1px 0 0 var(--border);
+}
+.matriz tbody tr.mes-abierto .col-total { background: var(--dato-entrada-bg); }
+.matriz tbody tr.mes-abierto:hover td { background: var(--dato-entrada-bg); }
+
+.matriz tbody tr.mes-futuro td,
+.matriz tbody tr.mes-futuro th { color: var(--ink-muted); }
+.matriz tbody tr.mes-futuro .col-dia { font-weight: 400; }
+
+/* La marca del mes en curso, junto al nombre del mes. */
+.etiqueta-abierto {
+    display: inline-block;
+    margin-left: var(--space-2);
+    padding: 1px 6px;
+    border-radius: var(--radius-pill);
+    background: var(--dato-entrada-borde);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: .6rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    vertical-align: middle;
+}

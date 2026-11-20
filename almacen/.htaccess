@@ -1,0 +1,10 @@
+# Aqui se guardan las corridas de la auditoria y los Excel generados: datos de
+# ventas de la empresa, documento a documento, con nombre de cliente y cedula.
+# No se sirve ni uno.
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>

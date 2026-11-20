@@ -160,7 +160,19 @@ abstract class ModeloAS400
             throw new RuntimeException('No hay conexión abierta con el AS400.');
         }
 
-        $sentencia = @odbc_prepare($dbconect, $sql);
+        /*
+         * EL SQL SE CONVIERTE A LA PÁGINA DE CÓDIGOS DEL AS400, Y NO ES
+         * COSMÉTICA
+         * -----------------------------------------------------------------
+         * `IDP210`, `RTP325` e `IDP116N` tienen un campo que SE LLAMA con
+         * eñe: `NFAÑDC` / `RFAÑDC`, el año de dos cifras de la fecha del
+         * documento. En un archivo PHP guardado en UTF-8 esa eñe son DOS
+         * bytes (0xC3 0xB1) donde el AS400 espera uno (0xF1), así que el
+         * nombre que recibe el servidor no es el del campo y la consulta se
+         * rechaza con «columna no encontrada» señalando un campo que sí
+         * existe. Perdido un día entero con eso en el proyecto hermano.
+         */
+        $sentencia = @odbc_prepare($dbconect, (string) utf8_a_as400($sql));
 
         if ($sentencia === false) {
             throw new RuntimeException(

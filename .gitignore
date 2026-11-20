@@ -70,3 +70,26 @@ desktop.ini
 #  vistas/manuales/*.pdf           los manuales que se reparten
 #  .claude/agents/*.md             la metodología de la casa
 # ===========================================================================
+
+# ---------------------------------------------------------------------------
+#  Lo que genera la auditoría
+# ---------------------------------------------------------------------------
+# `almacen/` guarda las corridas en caché y los Excel que se generan: son
+# datos de ventas de la empresa, documento a documento, con nombre de cliente
+# y cédula. No se versiona ni uno. La carpeta sí, con su .htaccess, porque sin
+# ella la aplicación tendría que crearla en el primer uso y en un servidor sin
+# permiso de escritura eso falla con un mensaje que no dice de qué va.
+/almacen/*
+!/almacen/.htaccess
+!/almacen/auditoria/
+/almacen/auditoria/*
+!/almacen/auditoria/.gitkeep
+
+# La carpeta de lo desechable: ahi escribe `cli/probar-excel.php` su Excel de
+# datos inventados. Se versiona SOLO el aviso de que ahi no hay nada que
+# guardar, para que siga estando en un clon recien hecho: la separacion entre
+# esta carpeta y la de los informes de verdad es lo que impide que un comodin
+# se lleve por delante una auditoria, y eso hay que poder leerlo.
+!/almacen/pruebas/
+/almacen/pruebas/*
+!/almacen/pruebas/LEEME.txt

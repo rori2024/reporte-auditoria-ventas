@@ -169,6 +169,15 @@ $modulo = static function (string $nombre) use ($e): void {
     $modulo($nombreCapa);
 } ?>
 
+<!--
+  Los dos iconos del interruptor de tema, para que `vistas/js/tema.js` los
+  intercambie sin tener los trazados escritos dentro del JavaScript. El SVG
+  sale de `vistas/iconos.php`, que es la única lista de iconos: así cambiar uno
+  se hace en un sitio y no en dos.
+-->
+<template id="plantillaIconoLuna"><?= icono('luna', 18) ?></template>
+<template id="plantillaIconoSol"><?= icono('sol', 18) ?></template>
+
 <?php foreach ($app['js'] ?? [] as $script): ?>
 <script src="<?= $e($script) ?>"></script>
 <?php endforeach; ?>

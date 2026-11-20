@@ -1,0 +1,13 @@
+# Los endpoints de `php/` SÍ se sirven: son la API de la pantalla.
+# Lo que no se sirve es nada que no sea un .php.
+<FilesMatch "\.(json|tsv|log|md|txt|bak|orig)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+Options -Indexes

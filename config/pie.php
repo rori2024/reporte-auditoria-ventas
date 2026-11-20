@@ -25,7 +25,8 @@ return [
     'empresa' => [
         'nombre'      => 'Industrias RRC, C.A.',
         'logo'        => 'vistas/img/industrias-rrc.png',
-        'descripcion' => 'Datos complementarios de la tela en el pedido de corte.',
+        'descripcion' => 'Auditoría de formas de pago: contrasta el encabezado de factura, su
+            detalle y sus pagos contra el AS400, en vivo.',
         'direccion'   => 'Av. Ppal. de Los Cortijos',
         'web'         => 'https://www.rori.com',
     ],
@@ -46,17 +47,25 @@ return [
     ],
 
     /*
-     * Vacío hasta que los manuales existan. En cuanto se generen a
-     * `vistas/manuales/`, se ponen las rutas aquí y los botones aparecen
-     * solos; mientras tanto la columna no se pinta, que es mejor que un
+     * Los manuales, ya generados. Las rutas se ponen aquí y los botones
+     * aparecen solos; lo que se deje vacío no se pinta, que es mejor que un
      * enlace que da 404.
      *
      * Van a `vistas/manuales/` y no a `docs/`, porque `docs/` tiene un
-     * .htaccess que deniega el acceso por web y el enlace daría un 403.
+     * .htaccess que deniega el acceso por web y el enlace daría un 403. La
+     * FUENTE sigue siendo el Markdown de `docs/`: los PDF se regeneran desde
+     * allí con `docs/_herramientas/generar-manuales.mjs` y no se editan a
+     * mano.
+     *
+     * La guía de instalación (`vistas/manuales/INSTALACION.pdf`) también se
+     * genera, pero no se enlaza aquí: el pie sólo tiene sitio para los dos
+     * manuales y esa guía es para quien monta el servidor, no para quien usa
+     * la pantalla.
      */
     'manuales' => [
-        'texto'   => '',
-        'usuario' => '',
-        'tecnico' => '',
+        'texto'   => 'Cómo se usa esta auditoría y cómo está hecha por dentro. Se abren en
+            una pestaña nueva.',
+        'usuario' => 'vistas/manuales/MANUAL-USUARIO.pdf',
+        'tecnico' => 'vistas/manuales/MANUAL-TECNICO.pdf',
     ],
 ];

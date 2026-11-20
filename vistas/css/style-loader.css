@@ -1,0 +1,140 @@
+/* ===========================================================================
+ *  LOADER RORI
+ *  ---------------------------------------------------------------------------
+ *  Copiado de roriApp (`vistas/dist/assets/css/style-loader.css`). El diseño
+ *  es el de la casa y NO se cambia: las letras R-O-R-I con las dos barras del
+ *  logotipo encima, encendiéndose por turnos de izquierda a derecha.
+ *
+ *  Lo único adaptado:
+ *    · los colores fijos -> tokens, para que siga al tema claro y al oscuro
+ *      (`--loader-color`/`--tilde-color` no existen aquí: son `--ink`,
+ *      `--ink-muted` y `--primary`, que ya se redefinen en los dos temas)
+ *    · se añade `prefers-reduced-motion` (DESIGN-SYSTEM §8), que además aquí
+ *      es obligatorio: ver el porqué abajo, al pie de la hoja
+ *
+ *  SE SEPARA DEL ORIGINAL EN UNA COSA, Y CONVIENE SABERLO: el original pide
+ *  `'Poppins', sans-serif` y roriApp no carga Poppins, así que allí el loader
+ *  sale con la genérica del navegador. Aquí se puso `var(--font-sans)` —Plus
+ *  Jakarta Sans, la del resto de la aplicación—, de modo que las letras se
+ *  ven con otra tipografía que en roriApp. Está hecho para que el loader no
+ *  cante al lado de la pantalla en la que vive; si se quiere la copia
+ *  literal, son las dos líneas de `font-family` de aquí abajo.
+ *
+ *  Cuándo se usa: esperas LARGAS de pantalla o de panel. En esta aplicación
+ *  son dos y están medidas: la respuesta de VERA (13 a 98 s) y correr el ETL
+ *  (minutos). Si la espera baja de dos segundos no va este loader: va un
+ *  indicador pequeño en línea, o nada. Meterlo en un botón que guarda lo
+ *  abarata y deja de significar «esto va a tardar».
+ * ======================================================================== */
+
+.loader-1 {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: var(--font-sans);
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--ink);
+    position: relative;
+}
+
+.tildes {
+    text-shadow: 1px 1px 2px rgba(255, 255, 255, .699);
+}
+
+/* Las tildes son DOS COMILLAS SIMPLES inclinadas, no una diéresis: imitan
+ * las dos barras del logotipo.
+ *
+ * Y van del MISMO color que las letras, no en azul. Estaban en `--primary`
+ * —azul de acción— y eso las separaba de las letras que coronan, cuando en el
+ * logotipo las dos barras son del mismo color que el nombre. Ya no.
+ *
+ * `--ink` y no `#000`: en el tema oscuro un negro literal no se vería, y lo
+ * que se quiere es que sigan a las letras, que es lo que son. En el tema
+ * claro `--ink` ES negro (#0F172A). */
+.loader-1 .tildes {
+    position: absolute;
+    top: -25px;
+    font-size: 2.5rem;
+    transform: rotate(-15deg);
+    color: var(--ink);
+}
+
+/* El escalonado va de `:nth-child(2)` a `(5)` porque el hijo 1 es el div de
+ * las tildes. Si las letras se meten en un solo nodo, la onda desaparece. */
+.loader-1 span {
+    opacity: 0;
+    animation: fade 1.5s infinite ease-in-out;
+}
+
+.loader-1 span:nth-child(2) { animation-delay: 0s; }
+.loader-1 span:nth-child(3) { animation-delay: .2s; }
+.loader-1 span:nth-child(4) { animation-delay: .4s; }
+.loader-1 span:nth-child(5) { animation-delay: .6s; }
+
+.loader-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+}
+
+.loader-text {
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    color: var(--ink-muted);
+    text-transform: lowercase;
+    letter-spacing: 1px;
+    animation: pulse 2s infinite ease-in-out;
+    opacity: .8;
+    /* La sombra del original. Estaba de menos en esta copia y se repone: lo
+     * que se adapta son los colores, no el dibujo. */
+    text-shadow: 0 0 5px rgba(255, 255, 255, .3);
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: .6; }
+    50%      { opacity: 1; }
+}
+
+@keyframes fade {
+    0%, 100% { opacity: 0; }
+    50%      { opacity: 1; }
+}
+
+/* `.hidden` es GLOBAL, no está limitada al loader, y viene así del original.
+ * Se comprobó que ninguna otra hoja del proyecto define `.hidden`, así que
+ * hoy no pisa a nadie. Si alguna la definiera, mandaría la que se cargue
+ * después en la lista `'css'` de `config/app.php`. */
+.hidden { display: none; }
+
+/*
+ * NO HAY VARIANTE «CAPA QUE TAPA LA PANTALLA», y no es un olvido.
+ *
+ * Esta hoja llevaba una `.loader-capa` —`position: fixed` sobre todo, con
+ * desenfoque— que no estaba en el original de roriApp y que no mostraba
+ * nadie. Ninguna de las dos esperas de esta aplicación la quiere: en el ETL
+ * hay que poder darle a «Parar» mientras corre, y en VERA la espera va dentro
+ * del hilo, en el sitio donde va a salir la respuesta. Una capa que tapa la
+ * pantalla además impide leer lo que ya estaba.
+ *
+ * Si algún día hace falta una, que se escriba en la hoja de la pantalla que
+ * la pida. Esta hoja es la copia de la casa y se parece a roriApp a
+ * propósito: lo que se le añada aquí hay que reconciliarlo el día que el
+ * original cambie.
+ */
+
+/* Quien pide menos movimiento no debería ver letras parpadeando en bucle.
+ * Se deja el texto, que es lo que informa, y las letras quietas y legibles.
+ *
+ * Esto NO es un adorno de accesibilidad: `estilos.css` tiene una regla
+ * global que le pone `animation-duration: .01ms !important` y una sola
+ * repetición a todo. El `fade` del loader acaba en `opacity: 0`, así que sin
+ * este bloque las cuatro letras se quedarían INVISIBLES y el loader sería un
+ * hueco en blanco. Lo que lo salva es `animation: none`, que quita el
+ * nombre de la animación —eso el `!important` de la duración no lo toca—. */
+@media (prefers-reduced-motion: reduce) {
+    .loader-1 span { animation: none; opacity: 1; }
+    .loader-text   { animation: none; opacity: 1; }
+}

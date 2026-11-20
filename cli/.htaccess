@@ -1,0 +1,10 @@
+# Las herramientas de linea de comandos no se sirven por web. Cada archivo
+# comprueba ademas PHP_SAPI por su cuenta, porque un .htaccess que no se lee
+# —Apache sin AllowOverride— dejaria de proteger nada y nadie se enteraria.
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>

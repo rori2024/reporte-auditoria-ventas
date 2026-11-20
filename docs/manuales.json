@@ -1,0 +1,19 @@
+{
+    "identidad": {
+        "nombre": "Auditoría de Formas de Pago",
+        "lema": "Encabezado, detalle y pagos de cada factura, leídos del AS400 en vivo",
+        "version": "0.1.0",
+        "build": "Noviembre 2026 · en desarrollo",
+        "empresa": "Industrias RRC, C.A."
+    },
+    "colores": {
+        "marca": "#0369a1",
+        "marcaOscuro": "#0f172a"
+    },
+    "logo": "../vistas/img/industrias-rrc.png",
+    "manuales": [
+        { "archivo": "MANUAL-USUARIO", "titulo": "Manual de usuario",   "subtitulo": "Para quien audita las formas de pago" },
+        { "archivo": "MANUAL-TECNICO", "titulo": "Manual técnico",      "subtitulo": "Para quien mantiene el sistema" },
+        { "archivo": "INSTALACION",    "titulo": "Guía de instalación", "subtitulo": "Para quien monta el equipo que consulta el AS400" }
+    ]
+}

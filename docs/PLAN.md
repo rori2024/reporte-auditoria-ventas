@@ -1,670 +1,436 @@
-# Plan de migración — Asignación de Datos Complementarios de Tela (VARPG → PHP 8.2 MVC)
+# Auditoría de formas de pago, leída del AS400 en vivo
 
-Programa de origen: **OPPA64** — *«Asignación datos complementarios tela / código
-de corte y rapor»*, de Fernando Monasterio (14/Mar/2006), última compilación
-18/Jun/2018, versión en pantalla «V. 04.04.18».
+Esta aplicación contesta una pregunta que hoy no contesta nadie: **¿cuadra cada
+factura con lo que se cobró por ella?**
 
-| Archivo del proyecto VARPG | Qué aporta |
-|---|---|
-| `H:\App Carlos\Programas Visual Age\telas\OPPA64\OPPA64\OPPA64.VPG` | Todo el código: 17 rutinas de evento y 3 subrutinas |
-| `…\OPPA64.ODF` | Las 4 ventanas, sus controles y de qué campo del AS400 sale cada uno |
-| `…\OPPA64.LST` | Listado de compilación: el **layout completo de los 6 archivos** con tipos y posiciones |
-| `…\OPPA64.rst` | Biblioteca real de cada archivo (`RORIVENTAA`) y el servidor (`192.1.1.2`) |
-| `…\OPPA64.txm` + `.ipm` | Los 10 mensajes de validación, con su texto y su ayuda |
+Un documento del AS400 vive repartido en tres archivos, y los tres tienen que
+contar lo mismo:
 
-`OPPA26Applet.java` y `RT_WIN32\` son restos del programa del que se copió este
-(OPPA26) y del ejecutable compilado. No aportan nada a la migración.
-
----
-
-## 1. Qué hace el programa
-
-Sirve para **completar dos datos de la tela de un pedido de compra** que no se
-capturan cuando se crea el pedido:
-
-1. El **código de corte RAPOR**, compuesto de tres partes: `Diseño-Ancho-Largo`
-   (`A-BBB-CCC`, p. ej. `3-519-018`).
-2. El **porcentaje de prueba de encogimiento**, ancho y largo.
-
-Y, de paso, el nombre de la **sastrería express** asignada a esa tela.
-
-Se trabaja por **código de tela RORI**: se escribe uno, el programa lista todas
-las líneas de pedido de esa tela que están en inventario, y se editan una a una.
-
-### Las cuatro ventanas y el recorrido real
-
-| Ventana | Título | Para qué |
+| Archivo | Qué guarda | Dice |
 |---|---|---|
-| `OPPA6403` | *Ingrese el Codigo Tela RORI* | Pide el código de tela y lo valida contra `OMP013` |
-| `OPPA6401` | *Seleccione un registro* | Lista (subfile `SFL2`) las líneas de tela del pedido |
-| `OPPA6402` | *Adición/Modificación* | Formulario de edición de una línea |
-| `OPPA6400` | *Detalle* | Lista de pedidos (subfile `SFL1`) — **camino muerto, ver §4.1** |
+| `RORILBRA.IDP210` | el **encabezado** | cuánto se vendió |
+| `RORIVENTAA.RTP325` | el **detalle** | qué se vendió |
+| `RORIVENTAA.IDP116N` | los **pagos** | con qué se pagó |
 
-El recorrido vivo es **`OPPA6403` → `OPPA6401` → `OPPA6402`** y de vuelta. Lo
-confirman los eventos: el «<< Regresar» de `OPPA6401` y su `CLOSE` reactivan
-`OPPA6403`, no `OPPA6400`.
+Si la suma de las formas de pago no llega al total de la factura, falta un pago
+por asentar: dinero cobrado que no está registrado, o un financiamiento que
+nadie anotó.
+
+Nadie lo mira a mano. No porque no importe, sino porque son del orden de 3.800
+documentos al mes contra 5.200 líneas de pago.
 
 ---
 
-## 2. Los datos: archivos, campos y claves
+## 1. Qué cambia respecto de la versión que ya existía
 
-Servidor `192.1.1.2`, biblioteca **`RORIVENTAA`** en los seis casos.
+En `ventas-ia-agentes` ya hay una auditoría equivalente. **El juicio es el
+mismo, portado entero y con sus justificaciones**; lo que cambia es de dónde
+salen los datos y cómo se usa.
 
-| Alias | Archivo | Uso en el programa | Modo |
-|---|---|---|---|
-| `OMP004` | `RORIVENTAA/OMP004` | Encabezado de pedido (sólo `OPPA6400`) | Lectura |
-| `OMP012` | `RORIVENTAA/OMP012` | Detalle de tela del pedido — **es el que se actualiza** | Lectura y **escritura** |
-| `OML0121` | `RORIVENTAA/OML0121` | Lógico sobre `OMP012` por código de tela; de aquí sale el listado | Lectura |
-| `OMP013` | `RORIVENTAA/OMP013` | Inventario por tela; valida que el código exista | Lectura |
-| `OTP038` | `RORIVENTAA/OTP038` | Tabla de códigos de corte | Lectura |
-| `ETL0850` | `RORIVENTAA/ETL0850` | Lógico de tipos de tela; de aquí salen los nombres de sastrería | Lectura |
-
-### Campos que intervienen
-
-De `OMP012` / `OML0121` (formato `OMP012R`), los tipos salen del listado de
-compilación; el tamaño de los empaquetados se deduce de los bytes que ocupan:
-
-| Campo | Posición | Tipo | Significado |
-|---|---|---|---|
-| `OSTDTL` | 1-1 | `CHAR(1)` | Estado. **El listado filtra por `'8'`** (inventario) |
-| `ONRODC` | 2-7 | `DEC(6,0)` zoned | Nº de orden de compra — **parte 1 de la clave** |
-| `OCDTRO` | 8-17 | `CHAR(10)` | Código de tela RORI — **parte 2 de la clave** |
-| `ONBTPR` | 18-47 | `CHAR(30)` | Código/nombre de tela del proveedor |
-| `ODSACH` | 48-51 | `CHAR(4)` | Ancho de tela |
-| `ODSDTL` | 52-81 | `CHAR(30)` | Descripción de la tela |
-| `ODSTJD` | 187-206 | `CHAR(20)` | Descripción del tejido |
-| `ONBSAS` | 207-236 | `CHAR(30)` | **Nombre de sastrería** (se escribe) |
-| `OCDCTA` | 509-509 | `CHAR(1)` | **Código de corte A — «Diseño»** (se escribe) |
-| `OCDCTB` | 510-511 | `DEC(3,0)` packed | **Código de corte B — «Ancho»** (se escribe) |
-| `OCDCTC` | 512-513 | `DEC(3,0)` packed | **Código de corte C — «Largo»** (se escribe) |
-| `OPRBEA` | 514-516 | `DEC(5,2)` packed | **% encogimiento ancho** (se escribe) |
-| `OPRBEL` | 517-519 | `DEC(5,2)` packed | **% encogimiento largo** (se escribe) |
-
-De `OTP038` (combo «Cd.corte»): `OSTCRT CHAR(1)` estado —se filtra `'1'`=activo—,
-`OCDCRT CHAR(1)` código, `ONBCRT CHAR(20)` nombre.
-
-De `ETL0850` (combo «Sastrería Express»): `ECDTTL DEC(3,0)` código,
-`ENBTEL CHAR(30)` nombre, `ESTTEL CHAR(1)` estado —se filtra `'A'`=activo—.
-
-De `OMP013` (validación del código de tela): `OSTINV CHAR(1)`, `OCDPRO CHAR(6)`,
-`OCDTRO CHAR(10)`.
-
-De `OMP004` (sólo la pantalla muerta): `OSTODC`, `ONRODC`, `OPRFAC`, `OTOTTL`,
-`ODSUMD`, `ODIAPD`/`OMESPD`/`OANOPD`.
-
-### Claves — **pendiente de confirmar**
-
-El listado de compilación no imprime las claves. Del código RPG se deducen:
-
-| Archivo | Clave deducida | De dónde se deduce |
+| | `ventas-ia-agentes` | esta aplicación |
 |---|---|---|
-| `OMP012` | `ONRODC` + `OCDTRO` | `KEY012 KLIST` con esos dos `KFLD` |
-| `OML0121` | `OCDTRO` | `CHAIN WCDTRO` + `READE WCDTRO` |
-| `OMP013` | `OCDTRO` | `CHAIN WCDTRO` |
-| `OTP038` | `OCDCRT` | `CHAIN WCDCRT` |
-| `ETL0850` | — | se recorre secuencialmente, sin clave |
+| Origen | MySQL, cargado por el ETL de madrugada | **AS400 en vivo** |
+| Retraso | lo que no se cargó, no se audita | ninguno |
+| Cómo se pide | `php cli/auditoria-pagos.php --mes=2026-11` y después un `.ps1` | una pantalla con dos fechas |
+| Se ve antes de descargar | no | **sí** |
+| Excel | PowerShell manejando Excel por COM | PHP escribiendo el `.xlsx` |
+| Hace falta Excel instalado | sí | no |
 
-Hay que comprobarlas con `QSYS2.SYSKEYS` antes de dar por bueno el `WHERE` del
-`UPDATE` (§7.3). **No se pudo verificar ahora**: ver §10.
+Las dos consecuencias que importan:
 
-### El mapa de bibliotecas está incompleto
+1. **Desaparece el aviso «estos días no están cargados».** Aquí se pregunta al
+   AS400 y contesta el AS400, así que ese aviso se ha quitado en lugar de
+   dejarlo diciendo algo que ya no es verdad. Lo que sí queda es el aviso del
+   futuro: pedir noviembre el día 19 no deja once días sin auditar, deja once
+   días sin ocurrir, y decirlo de otra forma hace que quien lea el informe se
+   pregunte qué se le está ocultando.
 
-`config/librerias.txt` y `config/libreriasDevs.txt` sólo declaran `OMP012`.
-Faltan **`OMP004`, `OML0121`, `OMP013`, `OTP038` y `ETL0850`**, y sin ellos
-`ModeloAS400::archivo()` lanza excepción (por diseño: falla ruidosamente).
-
-Y un detalle que importa más: en `libreriasDevs.txt` la línea es
-`OMP012;RORIVENTAA.OMP012`, **la biblioteca de producción**. Para la hoja de
-corte da igual porque sólo lee; aquí **se escribe**. Hay que apuntar el alias de
-desarrollo a una copia de pruebas (`CFLORES.OMP012` o similar) antes de probar
-el guardado, o las pruebas modificarán datos reales de producción.
-
----
-
-## 3. Lógica que hay que replicar
-
-### 3.1 El código de tela RORI se arma con dos campos
-
-`OPPA6403` tiene dos entradas, y el código es la concatenación de ambas:
-
-```
-WCDTRO = '0000000000'              (10 caracteres)
-WCDTRO = WMAQUI (1 car.)  +  WMAQUI1 (9 dígitos, rellenos con ceros)
-```
-
-Si `WMAQUI` está vacío, el primer carácter queda en blanco: `" 000012345"`.
-Si trae una letra: `"A000012345"`. Después se valida con `CHAIN OMP013`; si no
-existe → **MSG0009** «Codigo de tela no existe».
-
-En web se puede mantener el prefijo separado (es lo que la gente ya conoce) y
-armar el código de 10 posiciones en el servidor. El formato es
-`1 carácter + 9 dígitos a la derecha con ceros`, y eso **no** se puede dejar al
-navegador: un código mal rellenado no encuentra nada y parece «no hay datos».
-
-Nota: **MSG0010** («Debe colocar el codigo de tela RORI») es inalcanzable en el
-original, porque `WMAQUI1` es numérico y nunca queda en blanco. En web sí tiene
-sentido: se usa cuando no se escribe nada.
-
-### 3.2 El código de corte RAPOR
-
-Se muestra como `A-BBB-CCC` y se compone de `OCDCTA` (1 carácter, de `OTP038`),
-`OCDCTB` y `OCDCTC` (3 dígitos cada uno):
-
-```
-WSCRAPOR = OCDCTA + '-' + OCDCTB(3) + '-' + OCDCTC(3)
-```
-
-Cuando `OCDCTA` está en blanco, el listado muestra `0` en su lugar (`SFL2`
-`CREATE`). Eso **no es un formato**, es un parche para un dato corrompido: ver
-§4.2.
-
-Las etiquetas de `OPPA6402` dicen qué es cada parte: `Diseño` / `Ancho` /
-`Largo`, igual que la cabecera del listado («Codigo de Corte Rapor · Dis / Ach /
-Lar»).
-
-### 3.3 Las validaciones (`SRVAL1` y `SRVAL2`)
-
-| Regla | Mensaje | Texto |
-|---|---|---|
-| Código de corte (combo) sin elegir | MSG0001 | «Codigo de corte incompleto» |
-| `OCDCTA` en blanco | MSG0002 | «Codigo de corte incompleto.» |
-| `A='1'` (Unicolor) y `B≠0` o `C≠0` | MSG0006 | «Si el codigo de corte es 1=Unicolor, el resto debe ser igual a 0» — ej. `1-000-000` |
-| `A='2'` (Rayas) y (`B=0` o `C≠0`) | MSG0007 | «…los siguientes 3 digitos deben ser diferente de 0 y los ultimos digitos deben ser igual a 0» — ej. `2-012-000`, `2-815-000` |
-| Cualquier otro `A` (3, 4…) y (`B=0` o `C=0`) | MSG0008 | «Si el codigo es 3 ó 4, los siguientes digitos deben ser diferente de 0» — ej. `3-519-018`, `4-217-631` |
-
-Los mensajes MSG0003, MSG0004 y MSG0005 (porcentajes obligatorios y no
-negativos) están **comentados** en el fuente, bajo el rótulo «Campos no
-obligatorios». Los porcentajes, por tanto, son opcionales.
-
-**Lo importante: en el programa que está en producción estas validaciones no se
-ejecutan.** La línea que las llama está comentada:
-
-```rpg
-C* ojo desbloquear  EXSR      SRVAL1                                       VALIDACION
-```
-
-Como `*IN90` nunca se enciende, `SRACT1` graba siempre, sin comprobar nada. Esa
-nota del propio autor —«ojo desbloquear»— es la que hay que atender al migrar.
-
-### 3.4 Lo que se graba (`SRACT1`)
-
-```rpg
-KEY012 = ONRODC + OCDTRO
-CHAIN OMP012 → UPDATE OMP012R con:
-    OCDCTA = WCDCRT      (el código de corte elegido en el combo)
-    OCDCTB = WCDCTB
-    OCDCTC = WCDCTC
-    OPRBEA = WPRBEA
-    OPRBEL = WPRBEL
-    ONBSAS = WNBTEL      (el nombre de sastrería elegido en el combo)
-```
-
-Seis campos de un solo registro, identificado por orden + código de tela. Nada
-más. No hay bitácora, no hay marca de quién cambió qué ni cuándo.
+2. **El Excel ya no necesita Excel.** Un `.xlsx` es un ZIP con unos XML dentro,
+   y `servicios/LibroExcel.php` lo escribe directamente. Office en el servidor
+   web no estaba, ni tenía sentido ponerlo: dos personas pidiendo el informe a
+   la vez son dos instancias de Excel peleándose, y la que pierde deja un
+   `EXCEL.EXE` colgado que nadie cierra.
 
 ---
 
-## 4. Defectos del original, y qué hacemos con ellos
-
-Esto es la parte que más conviene leer antes de escribir código, porque **copiar
-el comportamiento al pie de la letra sería copiar tres fallos de datos**.
-
-### 4.1 `OPPA6400` no lleva a ninguna parte
-
-La ventana lista pedidos de `OMP004` con estado `'7'` u `'8'`, y al pulsar Enter
-sobre una fila hace `SHOWWIN 'OPPA6401'` **sin asignar `WCDTRO`**. El listado de
-`OPPA6401` se arma con `CHAIN OML0121` por ese campo, así que entrando por ahí
-sale vacío o con la tela de la consulta anterior.
-
-→ **Decidido: no se migra.** Es resto del programa del que se copió este
-(`OPPA26`). Si de verdad hace falta buscar por pedido en vez de por tela, es una
-función nueva y se diseña como tal.
-
-### 4.2 Guardar sin tocar el combo borra el dígito de diseño
-
-`RC01` (el combo «Cd.corte») tiene tres eventos:
-
-- `CREATE` lee el valor actual y lo guarda en **`WCDCTA`**.
-- `SELECT` guarda lo elegido en **`WCDCRT`**.
-- `SRACT1` graba `OCDCTA = `**`WCDCRT`**.
-
-`WCDCRT` sólo se rellena al desplegar y elegir. Si se abre una línea, se cambia
-sólo el porcentaje y se pulsa Aceptar, **se graba `OCDCTA` en blanco** y se
-pierde el dígito de diseño. Con `SRVAL1` desactivado (§3.3) nada lo impide.
-
-Eso explica el parche del listado: `OCDCTA IFEQ *BLANKS → MOVE '0' WA`. El
-programa ya convive con registros a los que les falta ese dígito.
-
-→ **Decidido: se corrige.** El diseño es obligatorio, viaja con su valor actual
-preseleccionado y se valida contra la lista real de `OTP038`.
-
-### 4.3 La edición puede grabar sobre la línea equivocada
-
-En el evento `ENTER` de `SFL2`, `READS SFL2` recupera la fila marcada, pero
-**`ONRODC` no es un campo del subfile** (`SFL2` sólo lleva `OCDTRO`, `ONBTPR`,
-`ODSDTL`, `ODSTJD`, `ODSACH`, `WSCRAPOR`, `OPRBEA`, `OPRBEL`, `ONBSAS`).
-
-Así que `ONRODC` conserva el valor de la **última** lectura del `READE` que llenó
-la lista. Y `KEY012` se arma con él. Si una tela aparece en varios pedidos,
-editar la primera línea graba en la última.
-
-Lo mismo ocurre con `WA`/`WB`/`WC`: son subcampos de la estructura `WCRAPOR`, y
-`READS SFL2` carga `WSCRAPOR`, que es otro campo. Al abrir `OPPA6402` se muestra
-el código de corte del último registro de la lista, no el de la fila elegida.
-
-→ **Decidido: se corrige.** Cada fila del listado viaja con su clave completa
-(`ONRODC` + `OCDTRO`) y con sus propios valores. En web esto sale gratis: es la
-forma natural de hacerlo.
-
-### 4.4 El listado escribe filas que no ha procesado
-
-En `SFL2 CREATE`, el `WRITE SFL2` está **fuera** del `IF OSTDTL = '8'`:
-
-```rpg
-C     OSTDTL        IFEQ      '8'
-C                   … calcula WSCRAPOR …
-C                   END
-C                   WRITE     SFL2          ← se escriben todas las filas
-```
-
-Las líneas con otro estado se listan igual, pero con el código de corte de la
-fila anterior. Tampoco hay `CLEAR SFL2` al principio, así que al volver a entrar
-las filas se acumulan.
-
-→ **Decidido: filtrar en el `WHERE` (`OSTDTL = '8'`) y calcular el código por
-fila.** Queda por confirmar si el filtro debe ser `'8'` o si hay que mostrar
-otros estados: §10.
-
-### 4.5 El `% de encogimiento` admite más de lo que la pantalla deja ver
-
-`OPRBEA` y `OPRBEL` son `DEC(5,2)` en el archivo (hasta `999.99`), el subfile
-los pinta con 4 dígitos y 2 decimales (`99.99`) y la entrada de `OPPA6402` con
-3 (`9.99`). Son tres límites distintos para el mismo dato.
-
-→ **Propuesta: validar `0.00`–`99.99`** (el ancho del listado), pendiente de
-confirmar con quien usa el programa: §10.
-
----
-
-## 5. Arquitectura destino
-
-Se sigue la base que ya está en el proyecto y el patrón de `hoja-corte-digital`,
-que es de donde viene esta plantilla: tres capas, endpoints JSON en `php/`, una
-sola plantilla y la pantalla armada en el navegador.
+## 2. Cómo está armado
 
 ```
-index.php                         ← ya está: abre sesión de intranet y carga la plantilla
-errorAcceso.php                   ← ya está, y ya pinta (§8.2)
-.htaccess                         ← ya está (fase 0)
+index.php
+  └── vistas/plantilla.php
+        ├── vistas/modulos/periodo.php     el formulario: dos fechas y los atajos
+        └── vistas/modulos/resultado.php   los huecos que llena el navegador
 
-config/
-  as400.php      env.php      texto.php      bitacora.php     ← ya están
-  .htaccess                       ← ya está (fase 0; faltaba, ver §8.1)
-  librerias.php                   ← ya está
-  intranet.php                    ← ya está (fase 0; faltaba, ver §8.1)
-  respuesta.php                   ← ya está (fase 0)
-  texto.php → utf8_a_as400()      ← ya está (fase 0, §7.4)
-  app.php                         ← ya está (§8.2): identidad de la app y qué carga la plantilla
-  pie.php                         ← ya está (§8.2): datos del pie corporativo
-  csrf.php                        ← CREAR en fase 3 (el original no escribía; esto sí)
-  librerias.txt / libreriasDevs.txt  ← ya están, con los 5 alias (§9.1)
+vistas/js/auditoria.js   pide, pinta y filtra. NO calcula nada.
 
-modelos/
-  as400.modelo.php                ← ya está; AÑADIR helper de escritura (§7.3)
-  intranet.modelo.php             ← ya está
-  tela.modelo.php                 ← CREAR: listado + validación de código + UPDATE
-  combos.modelo.php               ← CREAR: cortes (OTP038) y sastrerías (ETL0850)
+php/auditoria/consultar.php   POST desde+hasta  ->  JSON con el informe
+php/auditoria/excel.php       GET  token        ->  el .xlsx
 
-controladores/
-  plantilla.controlador.php       ← ya está
-  tela.controlador.php            ← CREAR: abre/cierra AS400, orquesta, no imprime
+servicios/Periodo.php         valida el rango y lo parte en meses
+servicios/Auditoria.php       EL JUICIO: el total, las tolerancias, los avisos
+servicios/CacheAuditoria.php  guarda la corrida para que el Excel sea lo visto
+servicios/LibroExcel.php      escribe un .xlsx sin dependencias
+servicios/InformeExcel.php    las cinco pestañas del informe
 
-php/
-  combos.php                      ← CREAR (GET)  listas de los dos desplegables
-  consultar.php                   ← CREAR (POST) líneas de una tela
-  guardar.php                     ← CREAR (POST) actualiza una línea
+modelos/auditoria.modelo.php  las cinco consultas al AS400
+modelos/as400.modelo.php      la base: conexión, conversión de códigos, filas
 
-servicios/
-  SesionIntranet.php              ← ya está
-  DatosTela.php                   ← CREAR: validación de dominio (§3.3) sin SQL ni HTML
-
-vistas/
-  .htaccess                       ← ya está (§8.2): niega los .php, deja pasar css/js/img
-  plantilla.php                   ← ya está (§8.2): genérica, se gobierna con config/app.php
-  iconos.php                      ← ya está (§8.2)
-  modulos/pie.php                 ← ya está (§8.2)
-  modulos/busqueda.php            ← CREAR (OPPA6403)
-  modulos/listado.php             ← CREAR (OPPA6401)
-  modulos/editor.php              ← CREAR (OPPA6402, en diálogo modal)
-  modulos/acerca.php              ← COPIAR y adaptar en fase 5 (+ config/acerca.php)
-  css/  js/                       ← CREAR en fase 2 sobre la base de hoja-corte-digital
-  img/                            ← ya está la base; el icono propio en fase 5
-
-docs/                             ← este plan, y después los manuales
+cli/probar-as400.php          comprueba el servidor paso a paso
+cli/probar-excel.php          comprueba el cálculo y el Excel SIN servidor
+cli/auditoria.php             la auditoría entera desde la consola
 ```
 
-### Reparto de responsabilidades
+### 2.1 Cinco consultas y el cruce en PHP
 
-| Capa | Hace | No hace |
-|---|---|---|
-| `php/*.php` | Sesión de intranet, método HTTP, CSRF, leer la entrada, serializar | Lógica, SQL |
-| `tela.controlador.php` | `CONECTARAS400()`/`DESCONECTARAS400()` en `finally`, orquestar, traducir excepciones | SQL, `echo`, `header()` |
-| `DatosTela.php` | Las reglas de §3.1 y §3.3 | SQL, entrada cruda |
-| `*.modelo.php` | SQL preparado, una operación por método | Validar, reglas de negocio |
+La versión de MySQL resuelve todo en una sentencia con dos subconsultas
+agregadas y un `GROUP_CONCAT`. Aquí no, y por razones concretas:
 
----
+1. **`GROUP_CONCAT` no existe en DB2 for i.** Su equivalente es `LISTAGG`, que
+   está desde la 7.2 y necesita que la consulta la resuelva el motor SQL. Y no
+   se podía probar contra el servidor mientras se escribía esto, así que
+   apostar el informe a eso era apostar a ciegas. El desglose de formas de pago
+   se arma en PHP, que no depende de la versión de nada.
+2. **Cinco consultas simples son cinco planes triviales**; un `LEFT JOIN` contra
+   dos agregados sobre 170.000 filas es el tipo de consulta que el AS400
+   resuelve con una tabla temporal y un plan que desde aquí no se puede ver.
+3. **Si una falla, se sabe cuál.**
 
-## 6. Las pantallas
+### 2.2 El filtro de fecha no es un `BETWEEN`
 
-Una sola página con tres zonas, como la hoja de corte. No hay enrutador porque
-no hay a dónde enrutar.
+En el AS400 **no hay campo fecha** en ninguno de los tres archivos. Hay cuatro
+campos numéricos: siglo, año de dos cifras, mes y día (`NFCEDC`, `NFAÑDC`,
+`NFMSDC`, `NFDIDC`; en `RTP325` con `R` en vez de `N`).
 
-### 6.1 Búsqueda (de `OPPA6403`)
-
-Un campo de prefijo (1 carácter) y uno de 9 dígitos, más el botón *Consultar*.
-Debajo, cuando hay resultado, el código completo y la descripción de la tela,
-para que se vea que se consultó lo que se quería.
-
-### 6.2 Listado (de `OPPA6401`)
-
-Tabla `<table>` con `<thead>`/`<tbody>` y las columnas del subfile original:
-
-| Columna | Campo |
-|---|---|
-| Código Tela RORI | `OCDTRO` |
-| Código Tela Proveedor | `ONBTPR` |
-| Descripción Tela | `ODSDTL` |
-| Descripción Tejido | `ODSTJD` |
-| Ancho | `ODSACH` |
-| Código de Corte Rapor (Dis/Ach/Lar) | `A-BBB-CCC` |
-| % Encogimiento Ancho | `OPRBEA` |
-| % Encogimiento Largo | `OPRBEL` |
-| Sastrería Express | `ONBSAS` |
-| — | botón *Editar* |
-
-Y una columna más que el original no tenía pero que hace falta para saber qué se
-está editando: **Nº de orden** (`ONRODC`). Es la mitad de la clave; esconderla es
-lo que permitió el fallo de §4.3.
-
-### 6.3 Editor (de `OPPA6402`)
-
-Diálogo modal con los seis campos editables:
-
-| Control | Campo | Tipo |
-|---|---|---|
-| Diseño | `OCDCTA` | `<select>` con los activos de `OTP038`, etiqueta `código — nombre` |
-| Ds. corte | `ONBCRT` | sólo lectura, se actualiza al cambiar el diseño |
-| Ancho | `OCDCTB` | número entero 0-999 |
-| Largo | `OCDCTC` | número entero 0-999 |
-| Encogimiento Ancho | `OPRBEA` | decimal 0,00-99,99 |
-| Encogimiento Largo | `OPRBEL` | decimal 0,00-99,99 |
-| Sastrería Express | `ONBSAS` | `<select>` con los activos de `ETL0850` |
-
-Botones *Aceptar* y *Cancelar*. Las reglas de §3.3 se avisan en el cliente
-mientras se escribe —con el ejemplo del mensaje original (`1-000-000`,
-`2-012-000`, `3-519-018`)— y **se vuelven a comprobar en el servidor**, que es
-donde cuentan.
-
-El diseño visual sale de `.claude/agents/DESIGN-SYSTEM.md` y las reglas de
-`FrontEnd.md`: tokens, un solo `<h1>`, `<label for>` en cada campo, foco visible,
-y el desplazamiento en el contenedor del módulo, no en el `body`.
-
----
-
-## 7. Contratos y SQL
-
-### 7.1 `php/combos.php` (GET)
-
-```json
-{ "ok": true,
-  "cortes":     [ { "codigo": "1", "nombre": "UNICOLOR",  "etiqueta": "1 — UNICOLOR" } ],
-  "sastrerias": [ { "codigo": "12", "nombre": "…", "etiqueta": "…" } ] }
-```
+Componer un número con los cuatro y comparar el número funcionaría y le quitaría
+al servidor cualquier posibilidad de usar un índice. Así que `Periodo::tramos()`
+parte el rango en meses y cada mes aporta su condición con los campos tal cual:
 
 ```sql
-SELECT OCDCRT, ONBCRT FROM {OTP038}  WHERE OSTCRT = '1' ORDER BY OCDCRT
-SELECT ECDTTL, ENBTEL FROM {ETL0850} WHERE ESTTEL = 'A' ORDER BY ENBTEL
+   (NFCEDC = 20 AND NFAÑDC = 26 AND NFMSDC = 11 AND NFDIDC BETWEEN  1 AND 30)
+OR (NFCEDC = 20 AND NFAÑDC = 26 AND NFMSDC = 12 AND NFDIDC BETWEEN  1 AND  5)
 ```
 
-### 7.2 `php/consultar.php` (POST)
+### 2.3 Por qué `RTP325` tarda, y por qué no se arregla aquí
 
-Entrada: `prefijo` (0-1 carácter) y `numero` (hasta 9 dígitos).
+Medido contra producción el 19/11/2026, pidiendo **un solo día**:
 
-```json
-{ "ok": true,
-  "tela": { "codigo": " 000012345", "descripcion": "…" },
-  "lineas": [ { "nroOrden": 123456, "codigoTela": " 000012345",
-                "telaProveedor": "…", "descripcion": "…", "tejido": "…",
-                "ancho": "…", "disenio": "3", "corteAncho": 519, "corteLargo": 18,
-                "rapor": "3-519-018", "encogimientoAncho": 1.50,
-                "encogimientoLargo": 0.75, "sastreria": "…" } ] }
-```
+| Archivo | Filas | Índice por fecha | Tardó |
+|---|---:|---|---:|
+| `IDP210` | 3.149.280 | sí (`INDICE1`, `IDP210V0L1`) | 0,06 s |
+| `IDP116N` | 444.044 | no, pero es pequeño | 0,18 s |
+| **`RTP325`** | **6.595.139** | **ninguno** | **17–22 s** |
 
-```sql
--- existencia del código de tela (MSG0009)
-SELECT OCDTRO FROM {OMP013} WHERE OCDTRO = ? FETCH FIRST 1 ROW ONLY
+`RTP325` se lleva el 98 % de la espera. La causa está medida y no admite otra
+lectura:
 
--- el listado
-SELECT ONRODC, OCDTRO, ONBTPR, ODSDTL, ODSTJD, ODSACH,
-       OCDCTA, OCDCTB, OCDCTC, OPRBEA, OPRBEL, ONBSAS
-  FROM {OML0121}
- WHERE OCDTRO = ? AND OSTDTL = '8'
- ORDER BY ONRODC
-```
+- **El tiempo no depende de cuántas filas se piden.** Un día (449 filas) tardó
+  22,22 s; el mes entero (8.547 filas) tardó 17,11 s. Diecinueve veces más
+  datos en el mismo tiempo: el servidor barre el archivo completo las dos
+  veces.
+- **En cuanto el filtro puede usar un camino de acceso, se desploma.** Por
+  fecha, 22,22 s; añadiendo la tienda, 1,08 s; por la clave del documento,
+  0,12 s.
 
-Sin filas → `ok:false` con «No hay líneas de tela en inventario para ese
-código», que es una respuesta normal, no un error: **HTTP 200**, como en la hoja
-de corte.
+Se descartaron los otros tres sospechosos midiéndolos uno a uno: el `GROUP BY`
+(6,76 s agrupando contra 7,65 s sin agrupar — **no es el GROUP BY**), el
+`RTPDOC IN (...)` y el campo del siglo. Ninguno explica nada.
 
-### 7.3 `php/guardar.php` (POST)
+**Consecuencia práctica:** la consulta actual ya es tan buena como se puede sin
+índice, así que se queda como está. Un mes cuesta lo mismo que un día —unos
+entre veinte segundos y un minuto—, que es lento pero usable, y el cargador de
+la pantalla lo dice
+en lugar de fingir que avanza. El arreglo de verdad es una sentencia que no nos
+toca ejecutar: está en [`INDICE-RTP325.md`](INDICE-RTP325.md), lista para
+sistemas.
 
-Entrada: la clave (`nroOrden`, `codigoTela`), los seis valores nuevos, los seis
-valores originales y el token CSRF.
+> La tentación de «optimizar la consulta» aquí sale cara: seis variantes
+> probadas, cero mejoras. Lo que falta no está en el `SELECT`.
 
-```sql
-UPDATE {OMP012}
-   SET OCDCTA = ?, OCDCTB = ?, OCDCTC = ?, OPRBEA = ?, OPRBEL = ?, ONBSAS = ?
- WHERE ONRODC = ? AND OCDTRO = ?
-   AND OCDCTA = ? AND OCDCTB = ? AND OCDCTC = ? AND OPRBEA = ? AND OPRBEL = ? AND ONBSAS = ?
-```
+### 2.4 La trampa de la eñe
 
-**Por qué los valores viejos van en el `WHERE`.** El RPG abría el archivo en
-actualización y mantenía el registro bloqueado entre el `CHAIN` y el `UPDATE`
-(de ahí los `UNLOCK` del fuente). Una página web no puede sostener ese bloqueo:
-entre consultar y guardar pasan minutos y la petición es otra. Con los valores
-originales en el `WHERE`, si alguien cambió la línea mientras tanto el `UPDATE`
-afecta **0 filas** y se puede avisar —«el registro cambió, vuelva a
-consultar»— en vez de machacar su trabajo en silencio.
+El campo del año **se llama con eñe**: `NFAÑDC`. En un archivo PHP guardado en
+UTF-8 esa eñe son dos bytes (`0xC3 0xB1`) donde el AS400 espera uno (`0xF1`), así
+que el nombre que recibe el servidor no es el del campo y la consulta se rechaza
+con «columna no encontrada» señalando un campo que sí existe.
 
-Hace falta, por tanto, un helper de escritura en `ModeloAS400` que devuelva el
-número de filas afectadas (`odbc_num_rows` tras `odbc_execute`). Hoy la clase
-sólo sabe leer. Si en el AS400 `odbc_num_rows` no resultara fiable para
-`UPDATE`, la alternativa es releer la fila y comparar antes de grabar.
+Lo arregla `ModeloAS400::ejecutar()`, que pasa el SQL entero por
+`utf8_a_as400()` antes de prepararlo. **Esa línea no es cosmética**: sin ella no
+funciona ninguna de las tres consultas principales.
 
-### 7.4 El AS400 habla Latin-1, también al escribir
+### 2.5 La clave del documento, y por qué se normaliza
 
-`config/texto.php` resuelve la mitad del problema: `as400_a_utf8()` convierte lo
-que **llega**. Falta la inversa, porque `ONBSAS` es texto y **se graba**: un
-nombre de sastrería con tilde escrito en UTF-8 entra al archivo con dos bytes
-raros donde iba un carácter.
+Un documento es `fecha + tienda + tipo + número`. Los tres archivos la guardan
+con los mismos valores, pero el driver ODBC no los entrega iguales: `NNMDOC` es
+`DECIMAL(8,0)` y puede llegar como `26829`, `26829.` o `00026829` según el
+archivo y el controlador.
 
-→ Añadir `utf8_a_as400()` a `config/texto.php` y aplicarla al parámetro antes de
-`odbc_execute`. Es lo que hace `cambio_precio/modelos/Precios.modelo.php` con su
-`aLatin1()`; aquí queda en la frontera, no repartida por los modelos.
+Si no cruzan, **el informe sale con todo descuadrado y sin un solo error que lo
+delate**. Por eso cada parte numérica pasa por `(int)` antes de componer la
+clave, y por eso `cli/probar-as400.php` dedica su sección 7 a comprobarlo: un
+«0 de 120» ahí no es un detalle, es que el informe no sirve.
 
-Mejor aún: el nombre de sastrería **no se acepta tal cual del navegador**. Llega
-el código, se busca en `ETL0850` y se graba el `ENBTEL` que devuelve el AS400.
-Así el texto que se escribe salió del propio AS400 y el problema se reduce.
+### 2.6 Por qué hay una caché
 
-### 7.5 Seguridad del endpoint que escribe
+La pantalla pide el informe, lo pinta, y la persona lo mira. Luego pulsa
+«Descargar Excel». Si ese botón volviera a preguntarle al AS400, el archivo
+descargado **no sería el que se acaba de revisar**: entre mirar y descargar pasan
+minutos, y en esos minutos las tiendas siguen facturando.
 
-La hoja de corte sólo consulta, así que su patrón de endpoint no cubre esto:
-
-1. **`SesionIntranet::continuar()`** al principio, como en los demás endpoints:
-   proteger la página y dejar el JSON abierto no protege nada.
-2. **Sólo POST**, con `header('Allow: POST')` y 405.
-3. **CSRF**. La cookie de sesión ya es `HttpOnly` + `SameSite=Lax`
-   (`SesionIntranet::iniciarSesionPhp`), lo que frena el caso básico, pero una
-   acción que escribe en un maestro de producción lleva token. Va en
-   `config/csrf.php`, se emite en la plantilla y se valida aquí.
-4. **Un solo nivel de acceso**: quien tiene la aplicación concedida en la
-   intranet puede consultar y guardar. `SesionIntranet::continuar()` del punto 1
-   ya lo comprueba, así que no hace falta nada más —pero **sí hace falta que
-   esté en los tres endpoints**, y en particular en éste: un `guardar.php` sin
-   esa línea deja escribir en `OMP012` a cualquiera que alcance la URL, tenga la
-   aplicación concedida o no.
-5. **Bitácora**. `bitacora_evento()` ya está en el proyecto. Se registra cada
-   guardado con usuario, orden, código de tela y el antes/después de los seis
-   campos. El programa original no deja rastro de nada; esto se cambia a
-   propósito, porque se está tocando un maestro.
+Esa es la razón de `CacheAuditoria`. Que además se ahorre una consulta de varios
+segundos es una ventaja, no el motivo. Caduca a la media hora: pasada, ya no se
+está descargando «lo que se acaba de mirar», y entonces lo honesto es ir a
+buscar el dato de nuevo.
 
 ---
 
-## 8. Fases
+## 3. El juicio, y de dónde salió
 
-| # | Fase | Entregable | Se puede dar por buena cuando |
-|---|---|---|---|
-| 0 | Base | **Hecha** (§8.1) | — |
-| 1 | Lectura | `combos.modelo.php`, `tela.modelo.php` (sin `UPDATE`), controlador, `php/combos.php`, `php/consultar.php` | El JSON de una tela conocida coincide con lo que muestra el `.EXE` |
-| 2 | Pantalla | Los tres módulos (`busqueda`, `listado`, `editor`), CSS, JS y loader. El armazón —plantilla, pie e iconos— ya está (§8.2) | Consultar y listar funciona de punta a punta, con teclado y en móvil |
-| 3 | Escritura | `DatosTela.php`, `php/guardar.php`, helper de escritura, CSRF, bitácora | Las 5 reglas de §3.3 rechazan lo que deben y un cambio aparece en `OMP012` |
-| 4 | Verificación | — | Comparado contra el `.EXE` con los mismos códigos de tela, campo por campo |
-| 5 | Cierre | README, icono, «Acerca de», manuales PDF | Con los agentes `GenerateReadme`, `GenerateIcon`, `ManualPDF` |
+Todo lo que sigue está medido sobre los 3.626 documentos de noviembre de 2026
+y, donde se dice, sobre los tres años cargados en el proyecto hermano.
 
-### 8.1 Fase 0 — hecha (29/10/2026)
+### 3.1 El total de la factura no se supuso: se midió
 
-| Pieza | Qué es |
-|---|---|
-| `config/respuesta.php` | `responder_json()`, copiado de `hoja-corte-digital`. Independiente del dominio |
-| `config/intranet.php` | Conexión con la base de la intranet. **Faltaba**, y la exigían `servicios/SesionIntranet.php:29` y `modelos/intranet.modelo.php`: sin él, `index.php` y `errorAcceso.php` daban error fatal |
-| `config/.htaccess` | **Faltaba.** `modelos/`, `controladores/` y `servicios/` traían el suyo, pero `config/` no: `config/librerias.txt` se descargaba por web con un 200, y con él el mapa entero de bibliotecas del AS400 |
-| `.htaccess` (raíz) | Deniega `.env`, `.git*` y los respaldos de editor (`*.bak`, `*.orig`, `*.sql`, `*.log`, `*~`), apaga `Indexes` y deja `display_errors` en el registro y fuera de la respuesta |
-| `config/texto.php` | Añadida `utf8_a_as400()`, la inversa que faltaba para poder grabar texto (§7.4) |
-| Mapa de bibliotecas | Los 5 alias, y corregida la errata del separador de `ETL0850` (§9.1) |
+`IDP210` trae seis importes y ninguno se llama «total». Se probaron las diez
+combinaciones razonables contra la suma de pagos:
 
-Comprobado:
+| Fórmula | Aciertos | |
+|---|---:|---:|
+| `monto bruto` | 124 de 3.626 | 3,4 % |
+| `bruto − descuento` | 186 de 3.626 | 5,1 % |
+| `bruto − descuento + IVA` | 3.551 de 3.626 | 97,9 % |
+| **`bruto − descuento + IVA + IGTF`** | **3.571 de 3.626** | **98,5 %** |
+| `venta Bs + IVA + IGTF` | 3.476 de 3.626 | 95,9 % |
 
-- **Las rutas de código devuelven 403** por web: `.env`, `.gitignore`,
-  `config/*`, `modelos/*`, `controladores/*`, `servicios/*`, `docs/*`.
-- **Ningún `require` del proyecto apunta a un archivo que no exista**, salvo los
-  dos de la capa de vista —`vistas/plantilla.php` y `vistas/modulos/pie.php`—,
-  que se pusieron justo después (§8.2).
-- **`utf8_a_as400()` y `as400_a_utf8()` son ida y vuelta exacta** para
-  «Sastrería Niño», «Tejido 100% Algodón» y un guión largo; la doble llamada no
-  rompe nada y `null` sigue siendo `null`.
-- **El mapa de bibliotecas resuelve los 5 alias** en los dos entornos, 44 en
-  total cada uno y ninguna línea descartada.
+```
+TOTAL = NMODC1 − NMODC2 + NMODC6 + NMOOCG
+      =  bruto  − dscto. +  IVA   +  IGTF
+```
 
-Lo que **no** se pudo comprobar: nada que toque el AS400. Sigue sin red (§10.1).
+El IGTF no es opcional: añadirlo arregla 20 documentos y **no rompe ni uno**. Eso
+es lo que lo convierte en parte de la fórmula y no en una corrección a ojo.
 
-Las fases 1 y 3 son las que hay que probar contra datos reales. La 2 se puede
-adelantar con datos de ejemplo.
+### 3.2 Los dos importes que quedan fuera, y el aviso que los vigila
 
-### 8.2 El armazón de la vista, genérico (30/10/2026)
+`NMODC7` (descuento SENIAT) y `NMOABO` (monto abono) no entran:
 
-`vistas/plantilla.php` y `vistas/modulos/pie.php` se trajeron de
-`hoja-corte-digital`. El pie ya era genérico —todo sale de `config/pie.php`—,
-pero la plantilla no: nombraba a la hoja de corte en cuatro sitios y traía sus
-módulos, sus hojas de estilo y sus scripts escritos a mano. Como esta carpeta
-va a ser la plantilla de los próximos programas, **todo eso se sacó a
-`config/app.php`**.
+- El primero vale **cero en todo el período medido**, así que sumarlo o no da el
+  mismo resultado y meterlo sería adivinar su signo con cero evidencia.
+- El segundo **no vale cero**, pero en las notas de crédito de clase 3 repite el
+  propio bruto (medido, 31 de 31) y sumarlo contaría el movimiento dos veces.
 
-| Pieza | Qué es |
-|---|---|
-| `config/app.php` | Nombre, subtítulo, descripción, color de tema, y las listas de `css`, `js`, `modulos` y `capas`. Es lo único que hay que tocar al copiar el proyecto |
-| `config/pie.php` | Datos del pie (DESIGN-SYSTEM.md §10). Versión `0.1.0 ( en desarrollo )` y `manuales` vacío, que es lo que hace que esa columna no se pinte todavía |
-| `vistas/plantilla.php` | Reescrita: no nombra a ninguna aplicación. El logotipo y el nombre de la empresa los toma de `config/pie.php`; el resto, de `config/app.php` |
-| `vistas/iconos.php` | Copiado. El catálogo de Lucide, con el comentario de las secciones ya neutro |
-| `vistas/modulos/pie.php` | El botón «Acerca de» sólo se pinta si `acerca` está en `capas`: un botón que no abre nada es peor que no tener botón |
-| `errorAcceso.php` | Ya no lleva el nombre escrito a mano. Lee los mismos dos archivos de configuración, que es lo que evita que una de las dos páginas se quede con el nombre del proyecto del que se copió |
-| `vistas/.htaccess` | Niega los `.php` de `vistas/` y deja pasar `css/`, `js/`, `img/` y `manuales/`. Pedir `vistas/modulos/pie.php` por URL devolvía el pie suelto, con los datos de contacto |
-| `controladores/plantilla.controlador.php`, `modelos/as400.modelo.php` | Sólo comentarios: hablaban de la hoja de corte y del VB6 del que venía aquélla |
+Los dos están vigilados por `Auditoria::avisos()`. El día que uno aparezca donde
+no se espera, el informe lo dice en lugar de callárselo.
 
-Un módulo que todavía no existe **no tumba la página**: la plantilla deja un
-aviso visible en su sitio y una línea en el registro. Una copia recién hecha se
-abre y se ve el armazón mientras se escriben los módulos, y el aviso se ve, que
-es lo que hace que no se olvide.
+### 3.3 El corte en 5 Bs cae en un hueco, no en una pendiente
 
-Comprobado: `index.php` y `errorAcceso.php` devuelven **200** y pintan el nombre
-nuevo en la pestaña, en la cabecera y en el pie; los tres avisos de módulo que
-falta salen en su sitio; `vistas/*.php` y `vistas/modulos/*.php` dan **403** y
-`vistas/img/icono.svg` sigue dando 200; y en el registro de Apache no hay ni un
-aviso de PHP. Las hojas de estilo todavía dan 404 —son de la fase 2—, así que la
-página se ve sin estilo.
+Las diferencias no se reparten gradualmente: forman dos grupos separados por un
+abismo.
 
-Queda para la fase 5, cuando haya icono propio: `vistas/img/icono.svg` sigue
-siendo las tijeras de la hoja de corte, con su `aria-label`.
+```
+  47 documentos entre     0,02 y      4,38 Bs     (45 de ellos con IGTF)
+   8 documentos entre 2.000,00 y 168.136,17 Bs
+```
 
----
+Entre 4,38 y 2.000,00 **no hay nada**. Moverlo a 10, a 100 o a 1.000
+clasificaría exactamente igual.
 
-## 9. Decisiones tomadas
-
-| Tema | Decisión | Motivo |
+| Clase | Condición | Qué significa |
 |---|---|---|
-| Comportamiento general | Replicar OPPA64, **menos** los cuatro fallos de §4, que **se corrigen** | Copiarlos sería migrar la corrupción de datos |
-| Validaciones `SRVAL1`/`SRVAL2` | **Se activan**, con los mensajes y ejemplos del original | Están escritas, documentadas en el `.txm` y el autor dejó nota de desbloquearlas |
-| Porcentajes | Opcionales (como en el original), rango `0,00`–`99,99` | MSG0003/4/5 están comentados bajo «Campos no obligatorios» |
-| `OPPA6400` (lista de pedidos) | **No se migra** | Camino muerto: §4.1 |
-| Concurrencia | Control optimista con los valores originales en el `WHERE` | No hay forma de sostener el bloqueo del RPG en web |
-| Bitácora | Se registra cada guardado | El original no deja rastro y aquí se escribe en un maestro |
-| Acceso | Intranet (`INTRANET_APP_ID=39`), **un solo nivel**: quien tiene la aplicación concedida consulta y guarda | Es lo que hace el `.EXE` de hoy; no hay dos perfiles que distinguir |
-| Mapa de bibliotecas | **Hecho**: los cuatro alias están en los dos archivos y en desarrollo lo que se escribe apunta a `DESARROLLO`. Ver §9.1 | En desarrollo no se puede escribir en producción |
+| `CUADRA` | ≤ 0,01 Bs | igual al céntimo |
+| `REDONDEO` | ≤ 5,00 Bs | redondeo del IGTF, no es dinero |
+| `REVISAR` | > 5,00 Bs | hay que ir a ver la factura |
+| `NO APLICA` | — | no hay nada que contrastar |
 
-### 9.1 El mapa de bibliotecas (hecho, 29/10/2026)
+El grupo pequeño tiene causa conocida: el IGTF es el 3 % y el AS400 lo calcula
+sobre el total del documento, mientras que las líneas de pago lo guardan
+redondeado por línea.
 
-Los alias que faltaban ya están en `config/librerias.txt` y
-`config/libreriasDevs.txt`, y el parser los resuelve en los dos entornos (44
-alias cada uno, ninguna línea descartada):
+### 3.4 Lo que NO se marca, aunque lo parezca
 
-| Alias | Producción | Desarrollo | Para qué |
-|---|---|---|---|
-| `OMP012` | `RORIVENTAA.OMP012` | `DESARROLLO.OMP012` | **el que se escribe** |
-| `OML0121` | `RORIVENTAA.OML0121` | `DESARROLLO.OML0121` | el listado de telas |
-| `OMP013` | `RORIVENTAA.OMP013` | `DESARROLLO.OMP013` | valida que el código de tela exista |
-| `OTP038` | `RORIVENTAA.OTP038` | `RORIVENTAA.OTP038` | combo de códigos de corte (sólo lectura) |
-| `ETL0850` | `RORIVENTAA.ETL0850` | `RORIVENTAA.ETL0850` | combo de sastrerías (sólo lectura) |
+**1. Las anuladas** (`NSTEVT = '9'`) llevan cero piezas y cero venta en el
+encabezado pero conservan sus líneas de detalle. Es el comportamiento correcto
+del AS400 — y de hecho cuadran en pagos. Marcarlas haría el informe falso en
+casi cien filas.
 
-`OMP004` no se declara, porque la pantalla que lo usaba no se migra (§4.1).
+**2. Las notas de crédito de clase 3** (`NTPDNC = '3'`, «ABON») no mueven
+mercancía: mueven dinero. Es un abono que el cliente entrega a cuenta de un
+apartado, y sus líneas de detalle son la mercancía de la factura original, que no
+tiene por qué sumar el importe abonado:
 
-Dos cosas que conviene no perder de vista:
+```
+abono == monto_bruto                 31 de 31
+IVA, descuento e IGTF en cero        31 de 31
+cuadran con sus formas de pago       31 de 31
+su detalle cuadra con el encabezado   0 de 31
+```
 
-1. La línea de `ETL0850` llegó con un **punto** donde va el punto y coma
-   (`ETL0850.RORIVENTAA.ETL0850`). `config/librerias.php` parte por `;`, así que
-   la descartaba en silencio —con su aviso en el registro, que nadie mira— y
-   `archivo('ETL0850')` habría fallado al abrir el combo de sastrerías. Ya está
-   corregido en los dos archivos.
-2. **`OML0121` es un lógico sobre `OMP012`.** Para que desarrollo sea coherente,
-   `DESARROLLO.OML0121` tiene que estar construido sobre `DESARROLLO.OMP012`. Si
-   lo está sobre el de producción, el listado leería producción mientras el
-   `UPDATE` escribe en desarrollo: los cambios no aparecerían nunca en pantalla
-   y se perseguiría un fantasma. Hay que comprobarlo con `DSPDBR`/`DSPFD` en
-   cuanto haya acceso al AS400 (§10.4).
+Para esta clase el contraste del detalle **no aplica**. En todo lo demás el
+detalle cuadra 3.724 de 3.724.
+
+**3. Las notas de crédito de clase 2** (`NTPDNC = '2'`, «AJUS») son un ajuste que
+se descuenta de la factura que corrigen. Medido sobre tres años:
+
+| clase | docs | apunta a factura | detalle | pagos |
+|---|---:|---|---|---|
+| 1 | 4.670 | 4.670 de 4.670 | sí | sí |
+| 2 | 55 | 55 de 55 | **nunca** | **nunca** |
+| 3 | 1.403 | 0 de 1.403 | no cuadra | sí |
+
+No mueven mercancía propia ni dinero propio, así que no hay nada que contrastar:
+se marcan `NO APLICA`. Marcarlas `CUADRA` o `REVISAR` mentiría en direcciones
+distintas.
+
+> Esta regla la encontró el verificador del proyecto hermano el 19/11/2026, con
+> `CCCT · NC 26829`: 42,40 Bs, siete piezas en el encabezado, cero líneas de
+> detalle y cero formas de pago. Con las reglas de entonces salía como
+> «falta por asentar 42,40 Bs». No faltaba nada.
+
+### 3.5 Dónde está el límite de lo que esto sabe
+
+- La columna «Observación» describe el **patrón** que se ve en el archivo, no la
+  causa. «Se registró el 80 % y la forma es CASHEA» es un hecho; «el cajero no
+  asentó la inicial» sería una acusación sin pruebas. Quien revise la factura en
+  la tienda tiene el papel delante y decide; el informe le dice dónde mirar.
+- La forma de pago `OT` se usa y **no está dada de alta en `IDTA116`**. Que no
+  tiene nada que ver con financiamiento lo confirmó Carlos; del archivo no se
+  puede deducir. Lo correcto sería darla de alta.
 
 ---
 
-## 10. Pendientes de confirmar
+### 3.6 La primera corrida contra producción, y lo que confirma
 
-**Con sistemas / red:**
+Noviembre de 2026, del 1 al 19, leído del AS400 el 19/11/2026 en **18,26 s**.
 
-1. **El AS400 no responde desde este equipo.** `192.1.1.2:8471` está cerrado y
-   el driver devuelve `comm rc=10013`. Nada de lo que toca datos se ha podido
-   verificar. Es lo primero.
-2. Las **claves** de los seis archivos (`QSYS2.SYSKEYS`), sobre todo que
-   `ONRODC` + `OCDTRO` identifique una sola fila de `OMP012`.
-3. Que los marcadores `?` funcionen con el driver de iSeries en el `UPDATE`, y
-   que `odbc_num_rows` devuelva filas afectadas.
-4. Que **`DESARROLLO.OML0121` sea el lógico de `DESARROLLO.OMP012`** y no el de
-   producción (`DSPDBR`), y que `DESARROLLO.OMP012` y `DESARROLLO.OMP013`
-   existan y tengan datos con los que probar. Es la condición para que la fase 3
-   se pueda probar sin tocar producción. Ver §9.1.
+```
+  documentos auditados       4.004        días con documentos    19
+  por tipo                   FC 3.832 · FE 34 · NC 136 · NE 2
+  total facturado            537.165.668,58 Bs
+  total en formas de pago    536.630.053,16 Bs
 
-**Con quien usa el programa:**
+  cuadran al céntimo         3.951   (98,7 %)
+  redondeo del IGTF             46   (92,33 Bs en total)
+  no aplica (ajuste NC-2)        1
+  A REVISAR                      6   (535.586,27 Bs por asentar)
 
-5. ¿El listado debe seguir mostrando **sólo** las líneas con `OSTDTL = '8'`
-   (inventario)? ¿Qué significan los demás estados?
-6. ¿Cuál es el **rango real** del % de encogimiento? El archivo admite hasta
-   `999,99`, la pantalla vieja mostraba `99,99` y dejaba escribir `9,99`.
-7. Hay registros con el **dígito de diseño en blanco** por §4.2. ¿Se dejan como
-   están, se listan para revisarlos, o se corrigen?
+  el detalle cuadra          3.972      NO cuadra: 0      no aplica: 32
+  anuladas                     110   (cuadran todas)
+  abonos NC-3                   31   (cuadran todas)
+  facturas manuales             34
+```
 
-Nada más queda sin decidir: lo del acceso se resolvió con un solo nivel (§9).
+**Todas las reglas aguantaron contra datos reales**, y ahora tienen evidencia
+propia en lugar de prestada del proyecto hermano:
+
+| Regla | Lo que predecía | Lo que salió |
+|---|---|---|
+| La fórmula del total | ~98,5 % de aciertos | **98,7 %** (3.951 de 4.004) |
+| El contraste del detalle | cuadra siempre salvo abonos y ajustes | **3.972 de 3.972, cero fallos** |
+| Las anuladas cuadran | sí, no son un descuadre | **110 de 110** |
+| Los abonos NC-3 cuadran en pagos | 31 de 31 | **31 de 31** |
+| El corte en 5 Bs cae en un hueco | 46 céntimos contra 6 de miles | **46 suman 92,33 Bs; los 6 suman 535.586** |
+
+Esa última fila es la que más dice: los 46 de «redondeo» suman **dos bolívares
+de media**, y los 6 «a revisar» empiezan en 2.000. El abismo sigue donde estaba,
+y el corte sigue cayendo dentro.
+
+Y los totales cuadran solos, que es la comprobación que no se puede falsear:
+
+```
+  537.165.668,58 − 536.630.053,16  =  535.615,42
+  535.586,27 (lo que falta)  +  29,15 (neto del redondeo)  =  535.615,42
+```
+
+#### Lo que encontró
+
+Seis documentos con **535.586,27 Bs cobrados y sin asentar**. El patrón de
+cuatro de ellos es de libro:
+
+| | Registrado | Falta |
+|---|---:|---:|
+| `RORI PORLAMAR · FC 54250` | **0,0 %** | 203.239,63 |
+| `LOS CORTIJOS · FC 293743` | 20,0 % | 143.846,52 |
+| `PTO. LA CRUZ · FC 176543` | 21,3 % | 140.000,00 |
+| `ORINOKIA · FC 167121` | 80,0 % | 35.835,12 |
+| `SAMBIL LA CANDELARIA · FC 25862` | 80,0 % | 10.665,00 |
+| `RORI VALENCIA · FC 128063` | 99,0 % | 2.000,00 |
+
+Los de 80 % y los de 20 % son las dos caras de lo mismo: una factura financiada
+donde se asentó sólo una de las dos partes. El de **0,0 %** no tiene ni una línea
+de pago: 203.239,63 Bs facturados sin ninguna forma de cobro registrada.
+
+Nada de esto lo miraba nadie. Es el primer mes.
+
+#### La segunda corrida, por la pantalla, y lo que corrige
+
+El 20/11/2026 a las 08:43 se pidió el 1 al 20 **desde la pantalla**, contra
+producción. Salió, y con ella se cierra el último punto que quedaba del
+programa: la interfaz funciona con el AS400 detrás.
+
+```
+  4.196 documentos  ·  19 días  ·  561.843.402,30 Bs  ·  52,60 s
+
+  cuadran al céntimo   4.140 (98,7 %)     el detalle cuadra, 0 descuadres
+  A REVISAR                6 (535.586,27 Bs, los mismos de la víspera)
+```
+
+Las reglas vuelven a aguantar sobre 4.196 documentos. Pero **el tiempo no**:
+
+| | 19/11, por consola | 20/11, por la pantalla |
+|---|---:|---:|
+| `IDP210` | 2,80 s | 4,50 s |
+| **`RTP325`** | **9,67 s** | **42,03 s** |
+| `IDP116N` | 5,20 s | 5,55 s |
+| **total** | **18,26 s** | **52,60 s** |
+
+Mismo servidor, un día de diferencia y cuatro veces más lento en el archivo que
+no tiene índice. No es el rango —eso ya estaba medido, §2.3— sino la carga del
+servidor y si conserva caliente el camino de acceso temporal que construye al
+vuelo.
+
+**Lo que esto obliga a corregir:** donde la documentación y la pantalla decían
+«unos veinte segundos» ahora dicen «entre veinte segundos y un minuto», y el
+paso de `RTP325` del cargador pasó de 20 a 45 segundos — con 20 se adelantaba y
+anunciaba el archivo siguiente cuando todavía faltaba la mitad de la lectura.
+
+Y refuerza la petición de [`INDICE-RTP325.md`](INDICE-RTP325.md): sin índice,
+cuánto tarda el informe no lo decide esta aplicación.
+
+---
+
+## 4. Qué está probado y qué no
+
+| | Cómo se comprueba | Estado |
+|---|---|---|
+| El total, las tolerancias, las tres clases | `php cli/probar-excel.php` — 12 casos difíciles, cada uno con el veredicto que tiene que salir | **probado** |
+| El resumen, los avisos, las formas de pago | el mismo script, 17 comprobaciones más | **probado** |
+| El `.xlsx`: cinco hojas, XML válido, filtros, panel fijo | el mismo script abre el ZIP y valida cada parte | **probado** |
+| La pantalla: pintado, filtros, ficha, móvil, tema oscuro | navegador con la respuesta simulada, sin errores de consola | **probado** |
+| Que los campos del AS400 se llamen como creemos | `php cli/probar-as400.php`, paso 4 | **confirmado 19/11/2026** |
+| **Que las claves crucen entre los tres archivos** | `php cli/probar-as400.php`, paso 7 | **confirmado**: 209 de 210 con detalle, 208 de 210 con pagos, cero huérfanos |
+| Que la fórmula del total cuadre con los pagos reales | tres documentos revisados a mano | **confirmado**: al céntimo |
+| De dónde sale la espera | `php cli/diagnostico-consultas.php` | **medido**: `RTP325`, 6,6 M de filas sin índice (§2.3) |
+| **Un mes entero de principio a fin** | `php cli/auditoria.php --mes=2026-11 --excel` | **confirmado**: 4.004 documentos en 18,26 s, todas las reglas aguantan (§3.6) |
+| Que el `.xlsx` de producción abra limpio | a mano | **pendiente** |
+| **La pantalla con el AS400 detrás** | a mano, 20/11/2026 | **confirmado**: 4.196 documentos en 52,60 s (§3.6) |
+
+El cálculo está partido en dos (`Auditoria::correr()` lee, `informar()` juzga)
+porque **con la VPN activa no se llega al AS400**: así todo lo que no depende
+del servidor se comprueba sin él, y lo que queda es exactamente lo que sólo el
+servidor puede contestar.
+
+Las dos corridas del 19/11/2026 contra producción cerraron lo que más riesgo
+tenía —el cruce de claves— y confirmaron el juicio entero sobre 4.004
+documentos reales (§3.6). Lo único que queda abierto no es de programación: el
+índice de `RTP325` (§2.3 y [`INDICE-RTP325.md`](INDICE-RTP325.md)).
+
+---
+
+## 5. Lo que queda por decidir
+
+| | Pregunta | Quién la contesta |
+|---|---|---|
+| A | ¿`OT` se da de alta en `IDTA116`? Mientras no, su columna «tipo» no es de fiar | sistemas |
+| B | ¿La clase 2 («AJUS») se trata como `NO APLICA` con la bendición del negocio, o sólo porque se comporta así? | contabilidad |
+| C | ~~¿El tope de 93 días se queda?~~ **Sí.** El barrido de `RTP325` no depende del rango; lo que sí crece con el rango es el JSON que viaja al navegador | cerrada |
+| D | ~~¿Hace falta filtrar por tienda en la consulta?~~ **No.** Filtrar por tienda haría una consulta por tienda: 55 × 1 s es peor que un barrido de 10 s | cerrada |
+| E | Los 6 documentos a revisar de noviembre, ¿son cobros que faltan de verdad? Sobre todo `RORI PORLAMAR · FC 54250`, 203.239,63 Bs sin una sola línea de pago | la tienda, con la factura delante |
