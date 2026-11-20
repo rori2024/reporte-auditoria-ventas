@@ -866,4 +866,6 @@ cambian.
 
 | Versión | Cuándo | Qué trajo |
 |---|---|---|
-| 0.1.0 | Noviembre 2026 | Primera versión. La auditoría contra el AS400 en vivo, con el juicio portado entero de `ventas-ia-agentes` y medido de nuevo; la pantalla de una sola página; el `.xlsx` de cinco pestañas escrito sin Excel ni Composer; las cuatro herramientas de consola; la regla de la nota de crédito de clase 2, encontrada el 19/11/2026; y la primera corrida contra producción —4.004 documentos en 18,26 s— que confirmó todas las reglas. |
+| 1.0.0 | Noviembre 2026 | Primera versión en producción. La auditoría contra el AS400 en vivo, con el juicio portado entero de `ventas-ia-agentes` y medido de nuevo; la pantalla de una sola página; el `.xlsx` de cinco pestañas escrito sin Excel ni Composer; las cuatro herramientas de consola; la regla de la nota de crédito de clase 2, encontrada el 19/11/2026; y la primera corrida contra producción —4.004 documentos en 18,26 s— que confirmó todas las reglas, y la segunda —4.196 documentos en 52,60 s— que la hizo desde la pantalla. |
+
+> El número de versión sale del archivo `VERSION` de la raíz del proyecto: lo leen el pie de la aplicación (`config/pie.php`) y este generador de manuales, así que no hay dos sitios donde pueda discrepar. El rótulo de entorno —«sin validar accesos», «bibliotecas de pruebas»— no se escribe: lo deduce `config/pie.php` del `.env`.

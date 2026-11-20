@@ -2,8 +2,8 @@
     "identidad": {
         "nombre": "Auditoría de Formas de Pago",
         "lema": "Encabezado, detalle y pagos de cada factura, leídos del AS400 en vivo",
-        "version": "0.1.0",
-        "build": "Noviembre 2026 · en desarrollo",
+        "version": "",
+        "build": "Noviembre 2026",
         "empresa": "Industrias RRC, C.A."
     },
     "colores": {

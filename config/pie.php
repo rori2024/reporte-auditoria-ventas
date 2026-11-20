@@ -13,14 +13,67 @@ declare(strict_types=1);
  * se sabe se queda en blanco en vez de salir inventado en la pantalla.
  */
 
+require_once __DIR__ . '/env.php';
+
+/* ===========================================================================
+ *  LA VERSIÓN Y EL ENTORNO, QUE SON DOS COSAS Y SE CONFUNDÍAN
+ * ---------------------------------------------------------------------------
+ *  Aquí ponía, escrito a mano, `'0.1.0 ( en desarrollo )'`. Y ahí estaba el
+ *  problema: el `.env` llevaba días en producción —`INTRANET_VALIDAR=si`,
+ *  `AS400_LIBRERIAS=produccion`— y el pie seguía anunciando que esto era un
+ *  desarrollo, porque ese texto no lo lee de ningún sitio: lo escribe una
+ *  persona y se queda viejo el día que se despliega.
+ *
+ *  Un rótulo de entorno que no se saca del entorno siempre acaba mintiendo, y
+ *  miente en la dirección peor: el día que de verdad se esté en pruebas, nadie
+ *  se lo creerá porque lleva meses diciendo lo mismo.
+ *
+ *  Así que son dos cosas separadas y ninguna se teclea aquí:
+ *
+ *   · LA VERSIÓN es un número de entrega y vive en el archivo `VERSION` de la
+ *     raíz, una línea. Lo lee esto y lo lee también el generador de los
+ *     manuales en PDF, así que no hay dos sitios que puedan discrepar.
+ *
+ *   · EL ENTORNO se deduce del `.env`, que es quien lo sabe. Y se nombra el
+ *     interruptor concreto que está apagado, no un «desarrollo» genérico: si
+ *     alguien ve «bibliotecas de pruebas» sabe exactamente qué mirar.
+ *
+ *  ESTO SE COPIA TAL CUAL AL PROYECTO SIGUIENTE. Un programa que no hable con
+ *  el AS400 no declara `AS400_LIBRERIAS` en su `.env`, y entonces ese aviso no
+ *  aparece: lo que no se declara no se comprueba, en lugar de dar por supuesto
+ *  que falta.
+ * ======================================================================== */
+
+/** El número de entrega, del archivo `VERSION` de la raíz. */
+$pie_version = trim((string) @file_get_contents(dirname(__DIR__) . '/VERSION'));
+
+if ($pie_version === '') {
+    // Sin archivo no se inventa un número: se dice que falta, que es lo que
+    // hace que alguien lo cree. Un «0.0.0» silencioso no lo arregla nadie.
+    $pie_version = '(sin archivo VERSION)';
+}
+
+/** Lo que está en pruebas, con el nombre del interruptor que lo pone así. */
+$pie_pruebas = [];
+
+if (!env_bool('INTRANET_VALIDAR', false)) {
+    $pie_pruebas[] = 'sin validar accesos';
+}
+
+$pie_librerias = strtolower(trim((string) env('AS400_LIBRERIAS', '')));
+
+if ($pie_librerias !== '' && $pie_librerias !== 'produccion') {
+    $pie_pruebas[] = 'bibliotecas de pruebas';
+}
+
 return [
     /*
-     * Versión de la aplicación. Vive aquí y no en una vista porque la
-     * muestran dos páginas distintas —la aplicación y la de acceso
-     * denegado— y una constante definida en una de ellas no existe en la
-     * otra.
+     * Versión de la aplicación. La muestran dos páginas distintas —la
+     * aplicación y la de acceso denegado—, así que vive aquí y no en una
+     * vista: una constante definida en una de ellas no existe en la otra.
      */
-    'version' => '0.1.0 ( en desarrollo )',
+    'version' => $pie_version
+        . ($pie_pruebas === [] ? '' : ' ( ' . implode(' · ', $pie_pruebas) . ' )'),
 
     'empresa' => [
         'nombre'      => 'Industrias RRC, C.A.',

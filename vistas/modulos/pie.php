@@ -26,7 +26,7 @@ $pie_app    = require __DIR__ . '/../../config/app.php';
 $pie_acerca = in_array('acerca', (array) ($pie_app['capas'] ?? []), true);
 
 /** Escapa para HTML; todo lo del pie pasa por aquí. */
-$e = static fn (?string $v): string => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
+$e = static fn(?string $v): string => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
 
 /**
  * Una línea de la lista: icono + texto, opcionalmente enlazado.
@@ -129,15 +129,15 @@ $clasesCols = 'footer__cols' . ($botonesManuales !== '' ? ' footer__cols--4' : '
                         <?= icono('usuario', 16) ?>Desarrollo
                     </h2>
                     <div class="footer__dev">
-<?php if (($desarrollador['foto'] ?? '') !== ''): ?>
-                        <!--
+                        <?php if (($desarrollador['foto'] ?? '') !== ''): ?>
+                            <!--
                           Sin `alt`: el nombre va justo al lado, en texto. Una
                           descripción aquí haría que el lector de pantalla
                           dijera el nombre dos veces.
                         -->
-                        <img class="footer__dev-photo" src="<?= $e($desarrollador['foto']) ?>"
-                             alt="" width="44" height="44" loading="lazy">
-<?php endif; ?>
+                            <img class="footer__dev-photo" src="<?= $e($desarrollador['foto']) ?>"
+                                alt="" width="44" height="44" loading="lazy">
+                        <?php endif; ?>
                         <div>
                             <div class="footer__dev-name"><?= $e($desarrollador['nombre'] ?? '') ?></div>
                             <div class="footer__dev-role"><?= $e($desarrollador['cargo'] ?? '') ?></div>

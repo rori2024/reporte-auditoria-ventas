@@ -7,7 +7,7 @@
 ![PHP](https://img.shields.io/badge/PHP-8.2-0369A1?style=for-the-badge&logo=php&logoColor=white)
 ![AS400](https://img.shields.io/badge/IBM%20AS400-DB2%20for%20i-0F172A?style=for-the-badge)
 ![Sin Composer](https://img.shields.io/badge/dependencias-ninguna-075985?style=for-the-badge)
-![Versión](https://img.shields.io/badge/versión-0.1.0-38BDF8?style=for-the-badge)
+![Versión](https://img.shields.io/badge/versión-1.0.0-38BDF8?style=for-the-badge)
 ![Uso interno](https://img.shields.io/badge/licencia-uso%20interno-64748B?style=for-the-badge)
 
 <br>
@@ -475,6 +475,6 @@ Lo que está comprobado en el archivo que lo sostiene, no lo que sería razonabl
 
 <sub>Soporte técnico · <a href="mailto:soporte@rori.com">soporte@rori.com</a> · Ext. 2309 · Lun a Vie, 7:30 – 16:00</sub>
 
-<sub>Versión 0.1.0 · Aplicación interna de Industrias RRC, C.A.</sub>
+<sub>Versión 1.0.0 · Aplicación interna de Industrias RRC, C.A.</sub>
 
 </div>
